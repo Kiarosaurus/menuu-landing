@@ -214,6 +214,9 @@ h3,.benefits h3{}
  --type-h2:clamp(2rem,3.6vw,2.75rem);
  --type-h3:clamp(1.375rem,2vw,1.5rem);
  --text-secondary:#52664f;
+ --scroll-track:#eef1e5;
+ --scroll-thumb:#5d8c70;
+ --scroll-thumb-hover:#075338;
 }
 body{font-family:var(--font-body);font-size:var(--type-body);font-weight:400;line-height:1.65}
 button,input,summary{font-family:var(--font-body)}
@@ -449,4 +452,22 @@ html{scroll-padding-top:0}
  .hero-actions{flex-direction:row;align-items:center;gap:12px}
  .hero-actions .button{padding-inline:14px}
  .hero-actions .text-link{width:auto;padding-inline:0;justify-content:flex-start}
+}
+
+/* Las dos etiquetas flotantes del hero comparten el mismo interlineado. */
+.hero-art .floating small{margin:0;line-height:1.3}
+.hero-art .floating strong{line-height:1.3}
+
+/* Barras verticales compartidas con la app de consumidores. */
+html::-webkit-scrollbar{width:12px}
+html::-webkit-scrollbar-track,html::-webkit-scrollbar-corner{background:var(--scroll-track)}
+html::-webkit-scrollbar-thumb{min-height:40px;border:2px solid var(--scroll-track);border-radius:999px;background:var(--scroll-thumb)}
+html::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+.privacy-dialog::-webkit-scrollbar{width:10px}
+.privacy-dialog::-webkit-scrollbar-track,.privacy-dialog::-webkit-scrollbar-corner{background:var(--cream)}
+.privacy-dialog::-webkit-scrollbar-thumb{min-height:40px;border:2px solid var(--cream);border-radius:999px;background:var(--scroll-thumb)}
+.privacy-dialog::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+@supports (-moz-appearance:none){
+ html{scrollbar-color:var(--scroll-thumb) var(--scroll-track);scrollbar-width:auto}
+ .privacy-dialog{scrollbar-color:var(--scroll-thumb) var(--cream);scrollbar-width:thin}
 }
