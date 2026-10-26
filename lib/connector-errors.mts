@@ -62,7 +62,7 @@ export function connectorResponse(result: unknown): Response {
       message:
         "The app did not return a confirmed result. The action may have completed; check before trying again.",
     },
-    { status: 502, headers: { "Cache-Control": "private, no-store" } },
+    { status: 502, headers: { "Cache-Control": "private, no-store" } }
   );
 }
 
@@ -70,7 +70,7 @@ export function connectorResponse(result: unknown): Response {
 export function connectorErrorRecovery(
   error: { status: string; message: string },
   connectorName: string,
-  reconnectHref: string,
+  reconnectHref: string
 ): { message: string; action?: { label: string; href: string } } {
   if (error.status === "reauthentication_required") {
     return {

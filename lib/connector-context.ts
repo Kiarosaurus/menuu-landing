@@ -7,7 +7,7 @@ const bindings = new AsyncLocalStorage<ConnectorBinding | undefined>();
 
 export function runWithConnectorBinding<T>(
   binding: ConnectorBinding | undefined,
-  run: () => T,
+  run: () => T
 ): T {
   return bindings.run(binding, run);
 }

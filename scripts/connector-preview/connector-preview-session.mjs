@@ -38,7 +38,7 @@ const { positionals, values } = parseArgs({
 const [project, grantsFile] = positionals;
 if (positionals.length !== 2 || !path.isAbsolute(project)) {
   throw new Error(
-    "Usage: node connector-preview-session.mjs <absolute-site-directory> <grants.json> [--concurrency 64] [--timeout-ms 120000] [--lifetime-ms N] [--max-calls N]",
+    "Usage: node connector-preview-session.mjs <absolute-site-directory> <grants.json> [--concurrency 64] [--timeout-ms 120000] [--lifetime-ms N] [--max-calls N]"
   );
 }
 const limits = sessionOptionsSchema.parse(
@@ -50,11 +50,11 @@ const limits = sessionOptionsSchema.parse(
       ["maxCalls", values["max-calls"]],
     ]
       .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, Number(value)]),
-  ),
+      .map(([key, value]) => [key, Number(value)])
+  )
 );
 const grants = grantsSchema.parse(
-  JSON.parse(await readFile(grantsFile, "utf8")),
+  JSON.parse(await readFile(grantsFile, "utf8"))
 );
 const root = path.join(project, ".sites-runtime", "connector-preview");
 const id = randomUUID();
@@ -65,9 +65,9 @@ const rpc = new JSONRPCClient(
   (message) =>
     new Promise((resolve, reject) => {
       process.stdout.write(`${JSON.stringify(message)}\n`, (error) =>
-        error ? reject(error) : resolve(),
+        error ? reject(error) : resolve()
       );
-    }),
+    })
 );
 const emit = (method, params) => rpc.notify(method, params);
 let closing = false;
@@ -110,7 +110,7 @@ try {
       timeoutMs: limits.timeoutMs,
       connectorIds: [...new Set(grants.map((grant) => grant.connectorId))],
     }),
-    { flag: "wx", mode: 0o600 },
+    { flag: "wx", mode: 0o600 }
   );
 } catch (error) {
   binding.close();
@@ -122,12 +122,12 @@ async function serve(name) {
   try {
     const body = await readFile(path.join(directory, name), "utf8");
     const response = await binding.fetch(
-      new Request("http://preview/invoke", { method: "POST", body }),
+      new Request("http://preview/invoke", { method: "POST", body })
     );
     if (!closing) {
       const output = path.join(
         directory,
-        name.replace(".request", ".response"),
+        name.replace(".request", ".response")
       );
       await writeFile(`${output}.tmp`, await response.text(), { mode: 0o600 });
       await rename(`${output}.tmp`, output);

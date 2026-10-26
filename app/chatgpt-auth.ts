@@ -40,7 +40,7 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
 }
 
 export async function requireChatGPTUser(
-  returnTo: string,
+  returnTo: string
 ): Promise<ChatGPTUser> {
   const user = await getChatGPTUser();
   if (user) return user;

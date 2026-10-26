@@ -5,7 +5,9 @@ import { notes } from "../../../db/schema";
 function toRouteErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
   const detail =
-    error instanceof Error && error.cause instanceof Error ? error.cause.message : "";
+    error instanceof Error && error.cause instanceof Error
+      ? error.cause.message
+      : "";
   const combined = `${message}\n${detail}`;
 
   if (combined.includes("no such table") || combined.includes('from "notes"')) {
@@ -47,7 +49,10 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
-    const [note] = await db.insert(notes).values({ title, content }).returning();
+    const [note] = await db
+      .insert(notes)
+      .values({ title, content })
+      .returning();
     return Response.json({ note }, { status: 201 });
   } catch (error) {
     return Response.json(

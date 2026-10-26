@@ -27,7 +27,7 @@ export function connectorPreview() {
   let server;
   async function readSession() {
     const session = JSON.parse(
-      await readFile(path.join(root, "session.json"), "utf8"),
+      await readFile(path.join(root, "session.json"), "utf8")
     );
     if (
       !/^[0-9a-f-]{36}$/.test(session.id) ||
@@ -76,7 +76,7 @@ export function connectorPreview() {
         (!this.environment && !options?.ssr)
       ) {
         throw new Error(
-          "Connected apps are only available in Site server routes.",
+          "Connected apps are only available in Site server routes."
         );
       }
       // Auxiliary Workers load before Vite starts listening. strictPort keeps
@@ -127,7 +127,7 @@ export function connectorPreview() {
                 policy: "enabled",
                 tools: null,
               })),
-            }),
+            })
           );
         } catch {
           res.end(JSON.stringify({ status: "binding_unavailable" }));
@@ -151,7 +151,7 @@ export function connectorPreview() {
           const session = await readSession();
           const raw = await getRawBody(req, { limit: 65536 });
           const call = JSON.parse(
-            new TextDecoder("utf-8", { fatal: true }).decode(raw),
+            new TextDecoder("utf-8", { fatal: true }).decode(raw)
           );
           const body = JSON.stringify(call);
           const directory = path.join(root, session.id);
@@ -165,7 +165,7 @@ export function connectorPreview() {
           // longer provider waits without rebuilding or restarting the Site.
           const deadline = Math.min(
             session.expiresAt ?? Infinity,
-            Date.now() + session.timeoutMs + 2000,
+            Date.now() + session.timeoutMs + 2000
           );
           while (Date.now() < deadline) {
             try {
@@ -189,7 +189,7 @@ export function connectorPreview() {
           await Promise.all(
             [requestPath, requestPath && `${requestPath}.tmp`, responsePath]
               .filter(Boolean)
-              .map((file) => rm(file, { force: true })),
+              .map((file) => rm(file, { force: true }))
           );
         }
       });

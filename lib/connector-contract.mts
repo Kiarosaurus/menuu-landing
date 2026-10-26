@@ -1,10 +1,5 @@
 export type Json =
-  | null
-  | boolean
-  | number
-  | string
-  | Json[]
-  | { [key: string]: Json };
+  null | boolean | number | string | Json[] | { [key: string]: Json };
 
 export type ConnectorFailureStatus =
   | "invalid_request"
@@ -45,7 +40,7 @@ export type ConnectorBinding = {
   invoke(
     connectorId: string,
     actionName: string,
-    args: { [key: string]: Json },
+    args: { [key: string]: Json }
   ): Promise<ConnectorResult>;
   getContext?(): Promise<ConnectorContext>;
 };
@@ -78,7 +73,7 @@ export function createConnectors(binding: ConnectorBinding | undefined) {
     async getContext(): Promise<ConnectorContext> {
       if (typeof window !== "undefined") {
         throw new Error(
-          "Connected apps are only available in Site server routes.",
+          "Connected apps are only available in Site server routes."
         );
       }
       try {
@@ -143,11 +138,11 @@ export function createConnectors(binding: ConnectorBinding | undefined) {
     async invoke(
       connectorId: string,
       actionName: string,
-      args: { [key: string]: Json },
+      args: { [key: string]: Json }
     ): Promise<ConnectorResult> {
       if (typeof window !== "undefined") {
         throw new Error(
-          "Connected apps are only available in Site server routes.",
+          "Connected apps are only available in Site server routes."
         );
       }
       if (!binding) {

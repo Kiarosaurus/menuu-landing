@@ -55,7 +55,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
         let url: URL;
         try {
           authority = new URL(
-            `${secure ? "https" : "http"}://${request.headers.host}`,
+            `${secure ? "https" : "http"}://${request.headers.host}`
           );
           url = new URL(request.url ?? "/", authority);
         } catch {
@@ -88,7 +88,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
           .filter((cookie) => cookie.startsWith(`${localCookieName}=`))
           .map((cookie) => cookie.slice(localCookieName.length + 1));
         const applicationCookies = cookies.filter(
-          (cookie) => !cookie.startsWith(`${localCookieName}=`),
+          (cookie) => !cookie.startsWith(`${localCookieName}=`)
         );
         if (applicationCookies.length !== cookies.length) {
           removeHeader(request, "cookie");
@@ -111,12 +111,12 @@ export function sites({ mockAuth = true } = {}): Plugin {
             setHeader(
               request,
               "oai-authenticated-user-full-name",
-              localFullName,
+              localFullName
             );
             setHeader(
               request,
               "oai-authenticated-user-full-name-encoding",
-              "percent-encoded-utf-8",
+              "percent-encoded-utf-8"
             );
           }
           next();
@@ -139,7 +139,7 @@ export function sites({ mockAuth = true } = {}): Plugin {
               typeof value === "string" &&
               value
                 .split(/[;,]/)
-                .some((part) => part.trim().toLowerCase() === "prefetch"),
+                .some((part) => part.trim().toLowerCase() === "prefetch")
           )
         ) {
           respond(response, 204);
@@ -159,13 +159,13 @@ export function sites({ mockAuth = true } = {}): Plugin {
         response.setHeader("Cache-Control", "private, no-store");
         response.setHeader(
           "Location",
-          safeReturn(url.searchParams.get("return_to")),
+          safeReturn(url.searchParams.get("return_to"))
         );
         response.setHeader(
           "Set-Cookie",
           `${localCookieName}=${signIn ? "1" : ""}; Path=/; ${
             signOut ? "Max-Age=0; " : ""
-          }HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
+          }HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`
         );
         response.end();
       });
@@ -202,7 +202,7 @@ function removeHeader(request: IncomingMessage, name: string): void {
 function setHeader(
   request: IncomingMessage,
   name: string,
-  value: string,
+  value: string
 ): void {
   removeHeader(request, name);
   request.headers[name] = value;

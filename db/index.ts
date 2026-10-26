@@ -21,13 +21,15 @@ export function getDb() {
 
   if (!initPromise) {
     initPromise = client
-      .execute(`
+      .execute(
+        `
         CREATE TABLE IF NOT EXISTS \`leads\` (
           \`email\` text PRIMARY KEY NOT NULL,
           \`created_at\` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
           \`consent_version\` text DEFAULT 'pilot-v1' NOT NULL
         );
-      `)
+      `
+      )
       .then(() => {})
       .catch((err) => {
         console.warn("Could not ensure leads table existence:", err);
@@ -37,4 +39,3 @@ export function getDb() {
   dbInstance = drizzle(client, { schema });
   return dbInstance;
 }
-

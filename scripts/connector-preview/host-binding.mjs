@@ -50,12 +50,12 @@ export function createPreviewBinding({ tools, ...options }) {
     const { invoke, ...grant } = tool;
     if (!grantSchema.safeParse(grant).success || typeof invoke !== "function")
       throw new Error(
-        "Preview tools must be authenticated, resolved read actions.",
+        "Preview tools must be authenticated, resolved read actions."
       );
     const key = JSON.stringify([tool.connectorId, tool.actionName]);
     if (grants.has(key))
       throw new Error(
-        "Ambiguous connector action; the host must resolve its connection first.",
+        "Ambiguous connector action; the host must resolve its connection first."
       );
     grants.set(key, tool.invoke);
   }
@@ -95,7 +95,7 @@ export function createPreviewBinding({ tools, ...options }) {
       if (ended.signal.aborted || Date.now() >= expiresAt)
         return reply(failure("binding_unavailable"));
       const invoke = grants.get(
-        JSON.stringify([call.connectorId, call.actionName]),
+        JSON.stringify([call.connectorId, call.actionName])
       );
       if (!invoke || remaining === 0) return reply(failure("tool_not_allowed"));
       if (active >= maxConcurrent) return reply(failure("rate_limited"));
@@ -116,7 +116,7 @@ export function createPreviewBinding({ tools, ...options }) {
           new Promise((resolve) => {
             deadline = setTimeout(
               () => resolve(failure("upstream_error")),
-              timeoutMs,
+              timeoutMs
             );
           }),
           new Promise((resolve) => {
@@ -149,7 +149,7 @@ export async function readBounded(request, limit) {
     // raw-body owns byte limits and stream errors; strict decoding rejects
     // malformed UTF-8 instead of silently changing the caller's arguments.
     return new TextDecoder("utf-8", { fatal: true }).decode(
-      await getRawBody(stream, { limit }),
+      await getRawBody(stream, { limit })
     );
   } finally {
     stream.destroy();
@@ -206,7 +206,7 @@ function readRetryAfterMs(value) {
   } else if (
     typeof value === "string" &&
     /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(
-      value.trim(),
+      value.trim()
     )
   ) {
     milliseconds = Math.max(0, Date.parse(value) - Date.now());

@@ -12,6 +12,10 @@ export class ConnectorPreview extends WorkerEntrypoint {
     return binding.invoke(connectorId, actionName, args);
   }
 }
-const worker = { fetch() { return new Response("Not found", { status: 404 }); } };
+const worker = {
+  fetch() {
+    return new Response("Not found", { status: 404 });
+  },
+};
 
 export default worker;

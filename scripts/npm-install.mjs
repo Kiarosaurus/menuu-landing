@@ -31,7 +31,7 @@ export class NpmCacheProgress {
 
   accept(line) {
     const match = line.match(
-      /^npm http (?:cache |fetch GET 200 )(\S+) \d+ms(?: attempt #\d+)? \(cache (hit|miss|revalidated|updated|skip)\)$/,
+      /^npm http (?:cache |fetch GET 200 )(\S+) \d+ms(?: attempt #\d+)? \(cache (hit|miss|revalidated|updated|skip)\)$/
     );
     if (!match) return;
     const [, spec, status] = match;
@@ -54,7 +54,7 @@ export class NpmCacheProgress {
     const urls = new Set(
       Object.values(lock.packages)
         .map((pkg) => pkg?.resolved)
-        .filter((url) => typeof url === "string" && /^https?:\/\//.test(url)),
+        .filter((url) => typeof url === "string" && /^https?:\/\//.test(url))
     );
     if (!urls.size || urls.size > MAX_PACKAGES) return {};
     const observed = new Set();
@@ -78,7 +78,7 @@ export class NpmCacheProgress {
         }
       }
       const matches = candidates.filter((candidate) =>
-        this.entries.has(candidate),
+        this.entries.has(candidate)
       );
       if (
         !matches.length ||
@@ -103,7 +103,7 @@ export async function runNpmInstall(command, cacheSeed = "not_applicable") {
     if (process.env.SITES_INSTALL_REPORT_PATH && constants.O_NOFOLLOW) {
       descriptor = openSync(
         process.env.SITES_INSTALL_REPORT_PATH,
-        constants.O_WRONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+        constants.O_WRONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
       );
       if (!fstatSync(descriptor).isFile()) {
         closeSync(descriptor);
@@ -134,7 +134,7 @@ export async function runNpmInstall(command, cacheSeed = "not_applicable") {
           stdio: ["ignore", "pipe", "ignore"],
           timeout: 3000,
           maxBuffer: 4096,
-        },
+        }
       );
       if (configured.status === 0) registry = configured.stdout.trim();
     } catch {}
@@ -170,7 +170,7 @@ export async function runNpmInstall(command, cacheSeed = "not_applicable") {
           code: startError ? (startError.code === "ENOENT" ? 127 : 1) : code,
           signal,
         });
-      }),
+      })
     );
     lines.close();
     if (startError) process.stderr.write("Unable to start npm.\n");
@@ -183,7 +183,7 @@ export async function runNpmInstall(command, cacheSeed = "not_applicable") {
       if (result.code === 0 && !result.signal) {
         try {
           counts = progress.counts(
-            JSON.parse(readFileSync("node_modules/.package-lock.json", "utf8")),
+            JSON.parse(readFileSync("node_modules/.package-lock.json", "utf8"))
           );
         } catch {}
       }
@@ -198,7 +198,7 @@ export async function runNpmInstall(command, cacheSeed = "not_applicable") {
                 ? cacheSeed
                 : "decision_unavailable",
             ...counts,
-          })}\n`,
+          })}\n`
         );
       }
     } catch {
@@ -222,7 +222,7 @@ if (
   const result = await runNpmInstall(command, cacheSeed);
   process.exitCode = result.signal
     ? 128 + (osConstants.signals[result.signal] ?? 0)
-    : result.code ?? 1;
+    : (result.code ?? 1);
   if (result.signal) {
     try {
       process.kill(process.pid, result.signal);
