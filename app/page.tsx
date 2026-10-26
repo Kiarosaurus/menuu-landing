@@ -16,6 +16,38 @@ import {
   Sparkles,
 } from "lucide-react";
 import Image from "next/image";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            hd?: string;
+            auto_select?: boolean;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: string;
+              size?: string;
+              text?: string;
+              shape?: string;
+              width?: number | string;
+              logo_alignment?: string;
+              locale?: string;
+            }
+          ) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 const steps = [
   {
@@ -83,10 +115,105 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error"
+    "idle" | "loading" | "success" | "already_registered" | "error"
   >("idle");
   const [error, setError] = useState("");
   const privacy = useRef<HTMLDialogElement>(null);
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+
+  const initGoogle = () => {
+    if (typeof window === "undefined") return;
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.warn(
+        "[Menúu] NEXT_PUBLIC_GOOGLE_CLIENT_ID no está definido. Revisa tus variables de entorno (en Vercel marca 'Preview' y vuelve a desplegar)."
+      );
+      return;
+    }
+    if (!window.google?.accounts?.id) return;
+    if (!googleBtnContainerRef.current) return;
+
+    try {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          setStatus("loading");
+          setError("");
+          try {
+            const res = await fetch("/api/inscripciones/google", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ credential: response.credential }),
+            });
+            const data = (await res.json()) as {
+              error?: string;
+              ok?: boolean;
+              alreadyRegistered?: boolean;
+              email?: string;
+            };
+            if (!res.ok) {
+              throw new Error(
+                data.error || "No pudimos completar tu inscripción con Google."
+              );
+            }
+            if (data.email) setEmail(data.email);
+            if (data.alreadyRegistered) {
+              setStatus("already_registered");
+            } else {
+              setStatus("success");
+            }
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Error al conectar con Google."
+            );
+            setStatus("error");
+          }
+        },
+        hd: "utec.edu.pe",
+      });
+
+      googleBtnContainerRef.current.innerHTML = "";
+      const containerWidth = Math.min(320, window.innerWidth - 60);
+      window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "pill",
+        width: containerWidth,
+        logo_alignment: "left",
+        locale: "es",
+      });
+    } catch (e) {
+      console.error("[Menúu] Error al inicializar Google Sign-In:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (status !== "idle") return;
+
+    // Intentar inicializar de inmediato si ya cargó
+    if (window.google?.accounts?.id && googleBtnContainerRef.current) {
+      initGoogle();
+      return;
+    }
+
+    // Polling de respaldo por si el script cargó antes o después de la hidratación
+    const interval = setInterval(() => {
+      if (window.google?.accounts?.id && googleBtnContainerRef.current) {
+        initGoogle();
+        clearInterval(interval);
+      }
+    }, 150);
+
+    const timeout = setTimeout(() => clearInterval(interval), 5000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [status]);
+
   useEffect(() => {
     const element = howCopy.current;
     if (!element) return;
@@ -140,12 +267,20 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, consent, website: form.get("website") }),
       });
-      const data = (await response.json()) as { error?: string; ok?: boolean };
+      const data = (await response.json()) as {
+        error?: string;
+        ok?: boolean;
+        alreadyRegistered?: boolean;
+      };
       if (!response.ok)
         throw new Error(
           data.error || "No pudimos guardar tu correo. Inténtalo de nuevo."
         );
-      setStatus("success");
+      if (data.alreadyRegistered) {
+        setStatus("already_registered");
+      } else {
+        setStatus("success");
+      }
     } catch (e) {
       setError(
         e instanceof Error
@@ -455,7 +590,39 @@ export default function Home() {
               </span>
             </div>
             <div className="signup-panel">
-              {status === "success" ? (
+              {status === "already_registered" ? (
+                <div className="success already-registered" role="status">
+                  <span>
+                    <Sparkles size={30} />
+                  </span>
+                  <h3>¡Ya estás en la lista!</h3>
+                  <p>
+                    {email ? (
+                      <>
+                        El correo <strong>{email}</strong> ya se encuentra
+                        registrado en la lista de espera de UTEC.
+                      </>
+                    ) : (
+                      "Tu correo ya se encuentra registrado en la lista de espera de UTEC."
+                    )}{" "}
+                    Te avisaremos apenas Menúu esté disponible.
+                  </p>
+                  <small>
+                    No te preocupes, tu lugar para el lanzamiento está
+                    asegurado.
+                  </small>
+                  <button
+                    type="button"
+                    className="success-reset-btn"
+                    onClick={() => {
+                      setStatus("idle");
+                      setEmail("");
+                    }}
+                  >
+                    Inscribir otro correo
+                  </button>
+                </div>
+              ) : status === "success" ? (
                 <div className="success" role="status">
                   <span>
                     <Check size={30} />
@@ -468,11 +635,30 @@ export default function Home() {
                   <small>
                     Esto es una inscripción a la lista de espera, no un pedido.
                   </small>
+                  <button
+                    type="button"
+                    className="success-reset-btn"
+                    onClick={() => {
+                      setStatus("idle");
+                      setEmail("");
+                    }}
+                  >
+                    Inscribir otro correo
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={submit}>
                   <h3>Entérate del lanzamiento</h3>
                   <p>Un correo para avisarte. Cero vueltas.</p>
+                  <div className="google-sso-wrapper">
+                    <div
+                      ref={googleBtnContainerRef}
+                      className="google-btn-container"
+                    />
+                  </div>
+                  <div className="signup-divider">
+                    <span>o ingresa tu correo manualmente</span>
+                  </div>
                   <label htmlFor="email">Tu correo institucional</label>
                   <div className="email-field">
                     <Mail size={18} />
@@ -581,6 +767,11 @@ export default function Home() {
           Entendido <Check size={18} />
         </button>
       </dialog>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={initGoogle}
+      />
     </>
   );
 }

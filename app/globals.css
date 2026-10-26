@@ -746,6 +746,52 @@ h2 {
   margin-top: 18px;
   color: #7c876b;
 }
+.success.already-registered > span {
+  background: #eef8cb;
+  color: var(--green);
+}
+.google-sso-wrapper {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.google-btn-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+}
+.signup-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 18px 0 10px;
+  color: #8c967d;
+  font-size: 0.85rem;
+}
+.signup-divider::before,
+.signup-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #173d2e18;
+}
+.success-reset-btn {
+  margin-top: 16px;
+  background: none;
+  border: 1px solid #173d2e25;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--green);
+  transition: all 0.15s ease;
+}
+.success-reset-btn:hover {
+  background: #ffffff;
+  border-color: var(--green);
+}
 .footer {
   padding-top: 42px;
   padding-bottom: 42px;
