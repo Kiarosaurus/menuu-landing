@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { leads } from "@/db/schema";
 export async function POST(request: Request) {
@@ -25,12 +26,25 @@ export async function POST(request: Request) {
         { error: "Acepta el aviso de privacidad para inscribirte." },
         { status: 400 }
       );
-    await getDb()
-      .insert(leads)
-      .values({ email, consentVersion: "launch-v2" })
-      .onConflictDoNothing();
+
+    const db = getDb();
+    const existing = await db
+      .select({ email: leads.email })
+      .from(leads)
+      .where(eq(leads.email, email))
+      .get();
+
+    if (existing) {
+      return Response.json(
+        { ok: true, alreadyRegistered: true },
+        { status: 200, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    await db.insert(leads).values({ email, consentVersion: "launch-v2" });
+
     return Response.json(
-      { ok: true },
+      { ok: true, alreadyRegistered: false },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch {
