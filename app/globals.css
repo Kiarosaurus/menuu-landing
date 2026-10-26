@@ -529,7 +529,7 @@ html::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
 @media(prefers-reduced-motion:reduce){.success .success-mark,.success-mark svg{animation:none;stroke-dashoffset:0}}
 .success p strong{color:var(--green);overflow-wrap:anywhere}
 .success-return{display:inline-flex;align-items:center;gap:7px;min-height:44px;margin-top:auto;padding:18px 0 0;border:0;background:transparent;color:var(--green);font-size:var(--type-small);font-weight:600;text-align:left;text-decoration:underline;text-underline-offset:3px}
-.success-return:hover{color:var(--orange-ink)}
+.success-return:hover{color:var(--orange)}
 
 /* Orange display type and solid benefit pictograms echo the kitchen badges. */
 :root{--orange-display:#f55e16}
