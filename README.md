@@ -1,6 +1,6 @@
 # Menúu
 
-Landing de lanzamiento para estudiantes de UTEC: comida de pequeños emprendimientos, entrega en la cafetería y pago con QR al recibir. No se reciben pedidos ni se procesan pagos desde esta página.
+Landing de lanzamiento para estudiantes de UTEC: comida de pequeños emprendimientos, entrega en el comedor y pago con QR al recibir. No se reciben pedidos ni se procesan pagos desde esta página.
 
 ## Desarrollo
 
