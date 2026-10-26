@@ -21,21 +21,25 @@ export function getDb() {
 
   if (!initPromise) {
     initPromise = client
-      .execute(
+      .executeMultiple(
         `
-        CREATE TABLE IF NOT EXISTS \`leads\` (
-          \`email\` text PRIMARY KEY NOT NULL,
-          \`created_at\` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          \`consent_version\` text DEFAULT 'pilot-v1' NOT NULL
-        );
-      `
+      CREATE TABLE IF NOT EXISTS \`leads\` (
+        \`email\` text PRIMARY KEY NOT NULL,
+        \`created_at\` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        \`consent_version\` text DEFAULT 'pilot-v1' NOT NULL,
+        \`edit_token_hash\` text,
+        \`edit_token_expires_at\` text
+      );
+    `
       )
       .then(() => {})
       .catch((err) => {
-        console.warn("Could not ensure leads table existence:", err);
+        // Ignorar errores si las columnas ya existen en el ALTER TABLE
+        console.warn("Ensure leads table existence info:", err);
       });
   }
 
   dbInstance = drizzle(client, { schema });
+
   return dbInstance;
 }
