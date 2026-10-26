@@ -28,8 +28,11 @@ yarn-error.log*
 
 # Local environment and keys
 .env*
+!.env.example
 .dev.vars*
 *.pem
+*.db*
+
 
 # Checkout-local tool state
 /.wrangler/
@@ -43,3 +46,4 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+.vercel

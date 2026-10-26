@@ -4,25 +4,51 @@ Landing de lanzamiento para estudiantes de UTEC: comida de pequeños emprendimie
 
 ## Desarrollo
 
-Proyecto React con Vinext y Cloudflare Workers. Requiere Node.js 22.13 o superior. En Windows, si `pnpm` no está disponible o Corepack falla, ejecuta desde esta carpeta:
+Proyecto desarrollado con Next.js 16 (App Router), React 19, Tailwind CSS y Drizzle ORM con LibSQL. Requiere Node.js 20.0.0 o superior y `pnpm`.
 
-```powershell
-npx --yes pnpm@11.25.0 install --frozen-lockfile
-npx --yes pnpm@11.25.0 db:local:migrate
-npx --yes pnpm@11.25.0 dev
+Para iniciar en local:
+
+```bash
+pnpm install
+pnpm dev
 ```
 
-Abre `http://127.0.0.1:5173/`. La migración solo prepara la base D1 local y puede repetirse; no modifica la base publicada. Si ya tienes `pnpm`, puedes usar `pnpm install`, `pnpm db:local:migrate` y `pnpm dev`. Para compilar, ejecuta `npx --yes pnpm@11.25.0 build`.
+Abre [http://localhost:3000](http://localhost:3000). En desarrollo local, la base de datos se crea y gestiona automáticamente en un archivo local (`file:local.db`).
 
-El formulario envía `POST /api/inscripciones` y guarda únicamente correos `@utec.edu.pe`, normalizados en minúsculas, en D1 junto con fecha y versión del consentimiento. La validación se ejecuta tanto en el navegador como en el servidor. No hay una ruta pública de lectura. Una clave primaria evita correos duplicados. Incluye verificación de origen y campo trampa contra bots. Tras una inscripción nueva, la respuesta entrega al navegador una autorización temporal para corregir ese correo durante 30 minutos mediante `PATCH /api/inscripciones`. La autorización se guarda solo como hash en D1, se renueva después de corregir y no se entrega cuando la dirección ya existía.
+### Scripts disponibles
 
-## Publicación y GitHub
+- `pnpm dev`: Inicia el servidor de desarrollo de Next.js.
+- `pnpm build`: Genera el build optimizado de producción.
+- `pnpm start`: Inicia el servidor de producción.
+- `pnpm lint` / `pnpm lint:fix`: Ejecuta ESLint (con opción de auto-fix).
+- `pnpm format` / `pnpm format:check`: Formatea o valida el código con Prettier.
 
-La primera versión se publica como vista privada con Sites. No se ha creado ni modificado un repositorio de la cuenta de GitHub del usuario.
+El repositorio incluye **Husky** y **lint-staged**: cada `git commit` ejecuta automáticamente el formateo y linter sobre los archivos staged para garantizar el estilo antes de confirmar cambios.
 
-Este código puede guardarse en un repositorio de GitHub. La versión completa requiere un runtime compatible con Cloudflare Workers y una base D1; no funciona íntegramente como un sitio de GitHub Pages, porque Pages no ejecuta la ruta de registro. Para alojar solo la parte visual en Pages habría que exportar una versión estática y conectar el formulario a un servicio externo. No publicar la base de datos, archivos de entorno ni credenciales en GitHub.
+## Base de Datos y Variables de Entorno
 
-La configuración de Sites solicita el binding D1 `DB` en `.openai/hosting.json`; `db/index.ts` lo exige para guardar cada inscripción y las migraciones están en `drizzle/`. Al publicar en Sites, configura la base D1 remota y aplica las migraciones `0000` y `0001` antes de aceptar registros. La base local de pruebas está separada de producción. El ID de base en `wrangler.local.jsonc` y en el build local es solo un identificador de desarrollo: para un despliegue independiente de Sites hay que crear una D1 remota, sustituir ese ID en la configuración de Wrangler y aplicar ambas migraciones en la base remota antes de publicar. La administración de la lista se realiza fuera de la landing pública.
+El formulario envía `POST /api/inscripciones` y registra únicamente correos institucionales `@utec.edu.pe` (normalizados en minúsculas) en la tabla `leads`, junto con la fecha y versión del consentimiento.
+
+- **Local:** Utiliza SQLite mediante `@libsql/client` (`file:local.db`). No requiere variables de entorno por defecto.
+- **Producción:** Compatible con bases serverless LibSQL / Turso.
+- Consulta [`.env.example`](./.env.example) para ver la plantilla de variables de entorno:
+  - `TURSO_DATABASE_URL`
+  - `TURSO_AUTH_TOKEN`
+
+La tabla se crea automáticamente al primer inicio si no existe. Incluye validación en cliente/servidor, verificación de origen y trampa honeypot contra bots.
+
+## Despliegue en Vercel
+
+El proyecto está listo para ser desplegado en **Vercel**:
+
+1. **Vía Git (Recomendado):** Conecta este repositorio en el [Vercel Dashboard](https://vercel.com/dashboard) para despliegues continuos automáticos en cada `git push`.
+2. **Vía CLI:**
+   ```bash
+   npx vercel@latest        # Despliegue de Preview
+   npx vercel@latest --prod # Despliegue a Producción
+   ```
+
+En las variables de entorno del proyecto en Vercel (`Settings` -> `Environment Variables`), agrega `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` para la persistencia de las inscripciones en producción.
 
 ## Contenido
 
