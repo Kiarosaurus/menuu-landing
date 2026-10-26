@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowUpRight, ArrowRight, Check, MapPin, QrCode, Utensils, Store, ScanLine, Plus, X, ShoppingBag, Mail, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { ArrowUpRight, ArrowRight, Check, MapPin, QrCode, Utensils, Plus, X, ShoppingBag, Mail, CircleAlert } from "lucide-react";
 
 const steps = [
- { name: "Elige tu antojo", title: "Tu break tiene menú.", description: "Elige la comida que se te antoje entre las opciones de la semana.", icon: Utensils, tag: "01 / ELIGE", imageNote: "IMAGEN REFERENCIAL", image: "/images/arroz-con-pollo.webp", alt: "Arroz con pollo peruano y salsa criolla; imagen referencial" },
+ { name: "Elige tu antojo", title: "Tu break tiene menú.", description: "Elige la comida que se te antoje entre las opciones de la semana.", icon: Utensils, tag: "01 / ELIGE", imageNote: "IMAGEN REFERENCIAL", image: "/images/arroz-con-pollo.webp", alt: "Arroz con pollo peruano y salsa criolla en un envase plástico descartable; imagen referencial" },
  { name: "Encuéntranos en la U", title: "Nos vemos en el comedor.", description: "Recoge tu pedido en el comedor de UTEC, entre clases.", icon: MapPin, tag: "02 / RECIBE", imageNote: "", image: "/images/utec-campus.webp", alt: "Vista del campus de UTEC, fotografía proporcionada para el punto de encuentro" },
  { name: "Paga con QR", title: "Primero llega. Luego pagas.", description: "Escanea el QR y paga cuando recibas tu pedido.", icon: QrCode, tag: "03 / PAGA", imageNote: "QR ILUSTRATIVO", image: "/images/menuu-qr-badge-v2.webp", alt: "Mano sosteniendo un carnet de Menúu con cinta para el cuello y un QR ilustrativo, no válido para pagos" },
 ];
@@ -13,16 +13,39 @@ const faqs = [
  ["¿Tengo que pagar por adelantado?", "No. El pago se realizará con QR al recibir el pedido en el comedor. Los medios compatibles se comunicarán antes de realizar tu pedido."],
  ["¿De dónde viene la comida?", "Menúu busca conectar a estudiantes con pequeños emprendimientos de comida. Los negocios participantes y su oferta se anunciarán en el lanzamiento."],
 ];
-function Logo() { return <a href="#inicio" className="logo" aria-label="Menúu, inicio"><img src="/images/menuu-logo.png" width="64" height="60" alt="" /><span className="brand-wordmark">Menúu</span></a>; }
+function BenefitIcon({ kind, hero = false }: { kind: "store" | "location" | "qr"; hero?: boolean }) {
+ return <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+  {kind === "store" && <><path d="M10 19h28v19H10z" fill="currentColor" /><path d="M9 11h30l3 9c-1.3 3-4.5 4.4-7.5 2.2-2.5 2.5-5.7 2.5-8.1 0-2.2 2.5-5.4 2.5-7.7 0-2.3 2.5-5.6 2.5-8.2 0C10.5 24.4 7.3 23 6 20z" fill="var(--orange-display)" /><path d="M16 27h7v11h-7zM27 27h7v6h-7z" fill="var(--benefit-cutout)" /></>}
+  {kind === "location" && <><path d="M24 5c-9.1 0-16 6.8-16 15.7C8 31.1 24 43 24 43s16-11.9 16-22.3C40 11.8 33.1 5 24 5Z" fill={hero ? "currentColor" : "var(--orange-soft)"} /><circle cx="24" cy="21" r="6" fill="var(--orange-display)" /></>}
+  {kind === "qr" && <><path d="M7 7h15v15H7zm19 0h15v15H26zM7 26h15v15H7z" fill="currentColor" /><path d="M12 12h5v5h-5zm19 0h5v5h-5zM12 31h5v5h-5z" fill="var(--benefit-cutout)" /><path d="M27 27h6v6h-6zm9 0h5v5h-5zm-9 9h5v5h-5zm9-1h5v6h-5z" fill="var(--orange-display)" /></>}
+ </svg>;
+}
+function Logo() { return <a href="#inicio" className="logo" aria-label="Menúu, inicio"><img src="/images/menuu-logo.png" width="64" height="60" alt="" /><span className="brand-wordmark">Menú<span className="brand-last-letter">u</span></span></a>; }
 export default function Home() {
  const [step, setStep] = useState(0);
  const howCopy = useRef<HTMLDivElement>(null);
  const [howHeight, setHowHeight] = useState<number | null>(null);
  const [email, setEmail] = useState("");
  const [consent, setConsent] = useState(false);
+ const [consentError, setConsentError] = useState(false);
+ const [emailInvalid, setEmailInvalid] = useState(false);
+ const [registeredEmail, setRegisteredEmail] = useState("");
+ const [editToken, setEditToken] = useState<string | null>(null);
+ const [editingEmail, setEditingEmail] = useState(false);
+ const [openFaq, setOpenFaq] = useState<number | null>(null);
+ const [faqPhotoHeight, setFaqPhotoHeight] = useState<number | null>(null);
+ const [faqWaveGap, setFaqWaveGap] = useState(0);
+ const faqSectionRef = useRef<HTMLElement>(null);
+ const faqPhotoRef = useRef<HTMLElement>(null);
+ const lastFaqRef = useRef<HTMLDivElement>(null);
+ const [pointerEntered, setPointerEntered] = useState(false);
+ const pointerRef = useRef<HTMLDivElement>(null);
+ const [confirmationHeight, setConfirmationHeight] = useState<number | null>(null);
  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
  const [error, setError] = useState("");
  const privacy = useRef<HTMLDialogElement>(null);
+ const consentInput = useRef<HTMLInputElement>(null);
+ const emailInput = useRef<HTMLInputElement>(null);
  useEffect(() => {
   const element = howCopy.current;
   if (!element) return;
@@ -33,44 +56,178 @@ export default function Home() {
   return () => observer.disconnect();
  }, []);
  useEffect(() => {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const elements = document.querySelectorAll<HTMLElement>(".scroll-reveal");
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !('IntersectionObserver' in window)) {
+   elements.forEach(element => element.classList.add("is-visible"));
+   return;
+  }
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {
    if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); }
-  }), { threshold: 0.1 });
-  const elements = document.querySelectorAll(".benefits article, .section-top, .questions > div, .signup-copy, .signup-panel");
-  elements.forEach(el => { el.classList.add("reveal"); observer.observe(el); });
-  return () => { observer.disconnect(); elements.forEach(el => el.classList.remove("reveal")); };
+  }), { threshold: 0.08, rootMargin: "0px 0px -8% 0px" });
+  elements.forEach(element => observer.observe(element));
+  return () => observer.disconnect();
  }, []);
+ useEffect(() => {
+  const element = pointerRef.current;
+  if (!element) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setPointerEntered(true); return; }
+  const observer = new IntersectionObserver(entries => {
+   if (entries.some(entry => entry.isIntersecting)) { setPointerEntered(true); observer.disconnect(); }
+  }, { threshold: 0.1 });
+  observer.observe(element);
+  return () => observer.disconnect();
+ }, []);
+ useEffect(() => {
+  let cancelled = false;
+  const measure = () => {
+   if (cancelled) return;
+   if (window.innerWidth <= 768) { setFaqPhotoHeight(null); return; }
+   const section = faqSectionRef.current;
+   const photo = faqPhotoRef.current;
+   const lastQuestion = lastFaqRef.current;
+   if (!section || !photo || !lastQuestion) return;
+   const topWithinSection = (element: HTMLElement) => {
+    let top = 0;
+    let current: HTMLElement | null = element;
+    while (current && current !== section) {
+     top += current.offsetTop;
+     current = current.offsetParent as HTMLElement | null;
+    }
+    return current === section ? top : null;
+   };
+   const photoTop = topWithinSection(photo);
+   const lastTop = topWithinSection(lastQuestion);
+   if (photoTop === null || lastTop === null) return;
+   const expandedAnswerHeight = lastQuestion.querySelector<HTMLElement>(".faq-answer-inner")?.scrollHeight ?? 0;
+   // Remove the height of whichever answer is currently animating. The photo
+   // must keep the same target height as questions open and close.
+   const visibleAnswerHeight = Array.from(section.querySelectorAll<HTMLElement>(".faq-answer"))
+    .reduce((total, answer) => total + answer.offsetHeight, 0);
+   const height = lastTop + lastQuestion.offsetHeight - visibleAnswerHeight + expandedAnswerHeight - photoTop;
+   if (height > 0) setFaqPhotoHeight(Math.round(height));
+  };
+  const frame = requestAnimationFrame(measure);
+  const settleTimer = window.setTimeout(measure, 800);
+  window.addEventListener("resize", measure);
+  void document.fonts.ready.then(measure);
+  return () => { cancelled = true; cancelAnimationFrame(frame); clearTimeout(settleTimer); window.removeEventListener("resize", measure); };
+ }, []);
+useEffect(() => {
+  if (openFaq === null || openFaq === faqs.length - 1) {
+    setFaqWaveGap(0);
+    return;
+  }
+
+  const measure = () => {
+    if (
+      window.innerWidth <= 768 ||
+      !faqPhotoRef.current ||
+      !lastFaqRef.current
+    ) {
+      setFaqWaveGap(0);
+      return;
+    }
+
+    const gap = Math.round(
+      faqPhotoRef.current.getBoundingClientRect().bottom -
+      lastFaqRef.current.getBoundingClientRect().bottom
+    );
+
+    setFaqWaveGap(gap >= 14 ? gap : 0);
+  };
+
+  // Calcular inmediatamente al abrir la pregunta
+  const frame = requestAnimationFrame(measure);
+
+  // Actualizar mientras las preguntas cambian de tamaño
+  const observer = new ResizeObserver(measure);
+
+  faqSectionRef.current
+    ?.querySelectorAll(".faq-item")
+    .forEach(item => observer.observe(item));
+
+  window.addEventListener("resize", measure);
+
+  return () => {
+    cancelAnimationFrame(frame);
+    observer.disconnect();
+    window.removeEventListener("resize", measure);
+  };
+}, [openFaq]);
  const current = steps[step]; const Icon = current.icon;
+ function navigateFromHeader(event: ReactMouseEvent<HTMLElement>) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !window.matchMedia("(min-width: 1001px)").matches) return;
+  const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href^="#"]') : null;
+  const id = anchor?.hash.slice(1);
+  if (!id || !["por-que", "como-funciona", "lanzamiento"].includes(id)) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  const content = id === "por-que" ? [target, target.parentElement?.querySelector<HTMLElement>(".benefits")].filter((element): element is HTMLElement => !!element) : [target];
+  const bounds = content.map(element => element.getBoundingClientRect());
+  const top = Math.min(...bounds.map(bound => bound.top)) + window.scrollY;
+  const bottom = Math.max(...bounds.map(bound => bound.bottom)) + window.scrollY;
+  const headerHeight = event.currentTarget.getBoundingClientRect().height;
+  const availableHeight = window.innerHeight - headerHeight;
+  const fits = bottom - top <= availableHeight;
+  const scrollTop = fits
+   ? top - headerHeight - (availableHeight - (bottom - top)) / 2
+   : target.getBoundingClientRect().top + window.scrollY - 76;
+  event.preventDefault();
+  if (window.location.hash !== anchor?.hash) window.history.pushState(null, "", anchor?.hash);
+  if (fits) {
+   const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+   if (scrollTop > maxScroll) {
+    const currentTail = parseFloat(document.body.style.getPropertyValue("--header-scroll-tail")) || 0;
+    // The footer's entrance moves 12px upward, shortening the page as it appears.
+    document.body.style.setProperty("--header-scroll-tail", `${currentTail + Math.ceil(scrollTop - maxScroll) + 16}px`);
+   }
+  }
+  window.scrollTo({ top: Math.max(0, scrollTop), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+ }
  async function submit(e: FormEvent<HTMLFormElement>) {
   e.preventDefault(); if (status === "loading") return;
+  if (!consent) {
+   setConsentError(true);
+   consentInput.current?.focus();
+   setError("");
+   setStatus("idle");
+   return;
+  }
+  setConsentError(false);
   if (!/^[^\s@]+@utec\.edu\.pe$/i.test(email.trim())) {
    setError("Usa tu correo institucional @utec.edu.pe.");
+   setEmailInvalid(true);
+   emailInput.current?.focus();
    setStatus("error");
    return;
   }
+  setEmailInvalid(false);
+  setConfirmationHeight(e.currentTarget.parentElement?.getBoundingClientRect().height || null);
   const form = new FormData(e.currentTarget); setStatus("loading"); setError("");
   try {
-   const response = await fetch("/api/inscripciones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, consent, website: form.get("website") }) });
-   const data = await response.json() as { error?: string; ok?: boolean };
+   const response = await fetch("/api/inscripciones", { method: editingEmail ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, consent, website: form.get("website"), originalEmail: registeredEmail, editToken }) });
+   const data = await response.json() as { error?: string; ok?: boolean; editToken?: string | null };
    if (!response.ok) throw new Error(data.error || "No pudimos guardar tu correo. Inténtalo de nuevo.");
+   setRegisteredEmail(email.trim().toLowerCase());
+   setEditToken(data.editToken ?? null);
+   setEditingEmail(false);
    setStatus("success");
   } catch (e) { setError(e instanceof Error ? e.message : "Revisa tu conexión e inténtalo de nuevo."); setStatus("error"); }
  }
  return <>
-  <header className="nav"><div className="container nav-inner"><Logo /><nav aria-label="Navegación principal"><a href="#por-que">Por qué Menúu</a><a href="#como-funciona">Cómo funciona</a></nav><a className="button button-small" href="#lanzamiento">Únete a la lista <ArrowUpRight size={17} /></a></div></header>
+  <header className="nav" onClick={navigateFromHeader}><div className="container nav-inner"><Logo /><nav aria-label="Navegación principal"><a href="#por-que">Por qué Menúu</a><a href="#como-funciona">Cómo funciona</a></nav><a className="button button-small" href="#lanzamiento">Únete a la lista <ArrowUpRight size={17} /></a></div></header>
   <main>
    <section className="hero container" id="inicio">
     <div className="hero-copy"><div className="eyebrow"><span className="live-dot" /> PRÓXIMAMENTE EN UTEC</div><h1>La U está difícil.<br />{" "}Almorzar <span className="highlight">ya no.<svg viewBox="0 0 420 20" preserveAspectRatio="none" aria-hidden="true"><path d="M4 13 Q190 -2 415 11" /></svg></span></h1><p className="hero-lead">Comida de pequeños emprendimientos, directo al comedor de UTEC. <strong>Recibes tu pedido y pagas con QR.</strong></p><div className="hero-actions"><a href="#lanzamiento" className="button">Únete a la lista de espera <ArrowUpRight size={20} /></a><a href="#como-funciona" className="text-link">Mira cómo funciona <ArrowRight size={16} /></a></div><div className="hero-note"><span className="hero-note-item"><Check size={15} /> Sin pago anticipado</span><span className="hero-note-separator" aria-hidden="true">·</span><span className="hero-note-item">Hecho para tu break</span></div></div>
-    <div className="hero-art"><div className="art-orbit" /><div className="dish-photo"><img src="/images/tallarines-verdes.webp" alt="Tallarines verdes peruanos con bistec; imagen referencial" fetchPriority="high" /><span className="photo-label">TALLARINES VERDES · IMAGEN REFERENCIAL</span></div><span className="sticker">menos vueltas<br />{" "}<strong>más ñam.</strong><Sparkles size={24} /></span><div className="floating location"><span className="float-icon"><MapPin size={21} /></span><div><small>Nos encontramos en</small><strong>Comedor de UTEC</strong></div><span className="tiny-dot" /></div><div className="floating payment"><span className="float-icon lime"><QrCode size={27} /></span><div><strong>Tu pedido llegó.</strong><small>Ahora sí, paga con QR <Check size={12} /></small></div></div><span className="side-note">el break se respeta ↗</span></div>
+    <div className="hero-art"><div className="art-orbit" /><div className="dish-photo"><img src="/images/tallarines-verdes.webp" alt="Tallarines verdes peruanos con bistec en un envase plástico descartable; imagen referencial" fetchPriority="high" /><span className="photo-label">TALLARINES VERDES · IMAGEN REFERENCIAL</span></div><span className="sticker"><span className="sticker-content"><span>menos vueltas</span><strong>más ñam.</strong><svg className="tasty-mouth" viewBox="0 0 44 24" fill="none" aria-hidden="true"><path d="M3 4.5C10 17.5 34 17.5 41 4.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" /><path d="M18 13.5c2.4.6 5.6.6 8 0v3.2c0 2.7-1.8 4.6-4 4.6s-4-1.9-4-4.6z" fill="#FB6418" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M22 17.3v2.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg></span></span><div className="floating location"><span className="float-icon"><BenefitIcon kind="location" hero /></span><div><small>Nos encontramos en</small><strong>Comedor de UTEC</strong></div></div><div className="floating payment"><span className="float-icon"><BenefitIcon kind="qr" hero /></span><div><strong>Tu pedido llegó.</strong><small>Ahora sí, paga con QR <Check size={12} /></small></div></div><span className="side-note">el break se respeta ↗</span></div>
    </section>
-   <div className="ticker"><div className="container ticker-inner"><span><Utensils size={20} /> Pequeños emprendimientos</span><i>✳</i><span><MapPin size={20} /> Un punto de encuentro</span><i>✳</i><span><QrCode size={20} /> QR al recibir</span><i>✳</i><span>100% pensado para la U</span></div></div>
-   <section className="section container why"><div className="section-top" id="por-que"><div><span className="eyebrow">TU BREAK MERECE MÁS</span><h2>Barato, cerca y listo.<br />{" "}<span className="muted">Con un extra de sabor.</span></h2></div><p>Elige tu menú favorito de pequeños emprendimientos y recógelo en el comedor de UTEC. Así de fácil: comida rica, sin salir a buscar y con más tiempo para ti.</p></div><div className="benefits"><article><span className="benefit-icon" aria-hidden="true"><Store strokeWidth={1.6} /></span><h3>Pequeños negocios.<br />{" "}Grandes antojos.</h3><p>Descubre propuestas de emprendimientos que quieren llegar a tu universidad.</p></article><article><span className="benefit-icon" aria-hidden="true"><MapPin strokeWidth={1.6} /></span><h3>Tu comida y tú.<br />{" "}En el mismo lugar.</h3><p>Entrega en el comedor de UTEC. Un punto de encuentro que ya es parte de tu día.</p></article><article><span className="benefit-icon" aria-hidden="true"><ScanLine strokeWidth={1.6} /></span><h3>Pagas cuando<br />{" "}la tienes contigo.</h3><p>Escanea el QR al recibir tu pedido. Sin tener que pagar por adelantado.</p></article></div></section>
-   <section className="how">
+   <div className="ticker scroll-reveal"><div className="container ticker-inner"><span><Utensils size={20} /> Pequeños emprendimientos</span><i>✳</i><span><MapPin size={20} /> Un punto de encuentro</span><i>✳</i><span><QrCode size={20} /> QR al recibir</span><i>✳</i><span>100% pensado para la U</span></div></div>
+   <section className="section container why scroll-reveal"><div className="section-top" id="por-que"><div><span className="eyebrow">TU BREAK MERECE MÁS</span><h2>Barato, cerca y listo.<br />{" "}<span className="muted">Con un extra de sabor.</span></h2></div><p>Elige tu menú favorito de pequeños emprendimientos y recógelo en el comedor de UTEC. Así de fácil: comida rica, sin salir a buscar y con más tiempo para ti.</p></div><div className="benefits"><article><span className="benefit-icon" aria-hidden="true"><BenefitIcon kind="store" /></span><h3>Pequeños negocios.<br />{" "}Grandes antojos.</h3><p>Descubre propuestas de emprendimientos que quieren llegar a tu universidad.</p></article><article><span className="benefit-icon" aria-hidden="true"><BenefitIcon kind="location" /></span><h3>Tu comida y tú.<br />{" "}En el mismo lugar.</h3><p>Entrega en el comedor de UTEC. Un punto de encuentro que ya es parte de tu día.</p></article><article><span className="benefit-icon" aria-hidden="true"><BenefitIcon kind="qr" /></span><h3>Pagas cuando<br />{" "}la tienes contigo.</h3><p>Escanea el QR al recibir tu pedido. Sin tener que pagar por adelantado.</p></article></div></section>
+   <section className="how scroll-reveal">
     <div className="container how-grid" id="como-funciona">
      <div className="how-copy" ref={howCopy}>
       <span className="eyebrow light">ASÍ DE SIMPLE</span>
-      <h2>Tres pasos.<br />{" "}Un buen break.</h2>
+      <div className="how-heading"><h2>Tres pasos.<br />{" "}Un buen break.</h2><span className="how-tongue-badge" aria-hidden="true"><svg viewBox="0 0 44 24" fill="none" focusable="false"><g transform="translate(0 3)"><path d="M3 4.5C10 17.5 34 17.5 41 4.5" stroke="currentColor" strokeWidth="3.3" strokeLinecap="round" /><g transform="translate(0 1.5)"><path d="M16.5 13c3.3 1.2 7.7 1.2 11 0v5c0 3.7-2.3 5.8-5.5 5.8s-5.5-2.1-5.5-5.8z" fill="#FB6418" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /><path d="M22 18v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></g></g></svg></span></div>
       <p className="how-intro">Conoce cómo será tu pedido con Menúu, desde el primer antojo hasta la entrega.</p>
       <div className="step-tabs" role="tablist" aria-label="Pasos del pedido">
        {steps.map((item,i) => <button key={item.name} role="tab" id={`step-${i}`} aria-selected={step === i} aria-controls="step-panel" onClick={() => setStep(i)} className={step === i ? "selected" : ""}><span>0{i+1}</span>{item.name}<ArrowUpRight size={20} /></button>)}
@@ -91,10 +248,46 @@ export default function Home() {
      </div>
     </div>
    </section>
-   <section className="section container questions"><div><span className="eyebrow">SIN QUEDARTE CON LA DUDA</span><h2>Antes del<br />{" "}primer bocado.</h2><p>Menúu está en preparación.<br />{" "}Esto es lo que necesitas saber.</p></div><div className="faq-list">{faqs.map(([q,a]) => <details key={q}><summary>{q}<Plus size={20} /></summary><p>{a}</p></details>)}</div></section>
-   <section className="signup-wrap"><div className="container signup" id="lanzamiento"><div className="signup-copy"><span className="eyebrow"><span className="live-dot" /> LISTA DE ESPERA · UTEC</span><h2>Que tu próximo<br />{" "}break tenga <em className="brand-wordmark">Menúu</em></h2><p>Déjanos tu correo y te avisaremos cuando lancemos Menúu. Tú pones el antojo.</p><span className="signup-note"><ShoppingBag size={18} /> Primero en UTEC. Pronto, en tu break.</span></div><div className="signup-panel">{status === "success" ? <div className="success" role="status"><span><Check size={30} /></span><h3>Tu antojo ya tiene lugar.</h3><p>Guardamos tu correo. Te avisaremos cuando lancemos Menúu en UTEC.</p><small>Esto es una inscripción a la lista de espera, no un pedido.</small></div> : <form onSubmit={submit}><h3>Entérate del lanzamiento</h3><p>Un correo para avisarte. Cero vueltas.</p><label htmlFor="email">Tu correo institucional</label><div className="email-field"><Mail size={18} /><input id="email" name="email" type="email" autoComplete="email" placeholder="tu@utec.edu.pe" value={email} onChange={e=>setEmail(e.target.value)} maxLength={254} pattern="[a-zA-Z0-9._%+-]+@utec[.]edu[.]pe" title="Usa tu correo institucional @utec.edu.pe" required /></div><div className="honeypot" aria-hidden="true"><label htmlFor="website">Sitio web</label><input id="website" name="website" tabIndex={-1} autoComplete="off" /></div><label className="consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} required /><span>Acepto que Menúu use mi correo para avisarme del lanzamiento en UTEC. <button type="button" onClick={()=>privacy.current?.showModal()}>Ver privacidad</button></span></label><button className="button signup-button" type="submit" disabled={status === "loading"}>{status === "loading" ? "Guardando tu correo…" : "Quiero estar en la lista"}<ArrowUpRight size={20} /></button>{error && <p className="form-error" role="alert">{error}</p>}<small className="form-note">Registrarte no tiene costo ni te compromete a comprar.</small></form>}</div></div></section>
+   <section ref={faqSectionRef} className="section container questions scroll-reveal">
+    <div className="questions-intro"><span className="eyebrow">SIN QUEDARTE CON LA DUDA</span><h2>Antes del<br />{" "}primer bocado.</h2><p>Menúu está en preparación.<br />{" "}Esto es lo que necesitas saber.</p><figure ref={faqPhotoRef} className="questions-photo" style={faqPhotoHeight ? { height: faqPhotoHeight } : undefined}><img src="/images/faq-preparacion-descartable.png" alt="Manos cerrando un envase y una tapa de plástico descartable con un almuerzo casero" width="1456" height="1080" loading="lazy" /><figcaption>Imagen referencial</figcaption></figure></div>
+    <div className="faq-list">{faqs.map(([q,a], index) => <div ref={index === faqs.length - 1 ? lastFaqRef : undefined} className={`faq-item${openFaq === index ? " is-open" : ""}`} key={q}><button type="button" id={`faq-question-${index}`} aria-expanded={openFaq === index} aria-controls={`faq-answer-${index}`} onClick={() => setOpenFaq(current => current === index ? null : index)}>{q}<Plus size={20} aria-hidden="true" /></button><div className="faq-answer" id={`faq-answer-${index}`} role="region" aria-labelledby={`faq-question-${index}`} aria-hidden={openFaq !== index}><div className="faq-answer-inner"><p>{a}</p></div></div></div>)}<div className={`faq-gap-wave${faqWaveGap > 0 ? " is-visible" : ""}`} style={{height: faqWaveGap, opacity: faqWaveGap > 0 ? 1 : 0, transform: faqWaveGap > 0 ? "translateY(0)" : "translateY(8px)", transition: "height 450ms ease, opacity 650ms ease, transform 650ms ease" }} aria-hidden="true"><svg viewBox="0 0 1000 18" preserveAspectRatio="none" fill="none" focusable="false"><path d="M2 12 Q85 4 168 12 T334 12 T500 12 T666 12 T832 12 T998 12" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg></div><div ref={pointerRef} className={`faq-pointer${pointerEntered ? " is-visible" : ""}${openFaq === null ? "" : " is-hidden"}`} aria-hidden="true"><svg viewBox="0 0 180 92" preserveAspectRatio="none" fill="none"><path d="M5 76C53 91 112 64 160 13" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><path d="M136 17c7-2 17-4 24-4-1 9-1 17-4 24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg><span className="faq-pointer-label"><span>preguntas</span><span>frecuentes</span></span></div></div>
+   </section>
+   <section className="signup-wrap scroll-reveal"><div className="container signup" id="lanzamiento"><div className="signup-copy"><span className="eyebrow"><span className="live-dot" /> LISTA DE ESPERA · UTEC</span><h2>Que tu próximo<br />{" "}break tenga <em className="brand-wordmark">Menú<span>u</span></em></h2><p>Déjanos tu correo y te avisaremos cuando lancemos Menúu. Tú pones el antojo.</p><span className="signup-note"><ShoppingBag size={18} /> Primero en UTEC. Pronto, en tu break.</span></div>
+    <div className="signup-panel" style={status === "success" && confirmationHeight ? { minHeight: confirmationHeight } : undefined}>
+     {status === "success" ? <div className="success" role="status">
+      <span className="success-mark"><Check size={30} /></span>
+      <h3>Tu antojo ya tiene lugar.</h3>
+      <p>Guardamos <strong>{registeredEmail}</strong>. Te avisaremos cuando lancemos Menúu en UTEC.</p>
+      <small>Esto es una inscripción a la lista de espera, no un pedido.</small>
+      {editToken ? <button className="success-return" type="button" onClick={() => {
+       setStatus("idle"); setEditingEmail(true); setEmail(registeredEmail); setError("");
+       setEmailInvalid(false); setConsentError(false); setConfirmationHeight(null);
+       requestAnimationFrame(() => emailInput.current?.focus());
+      }}>Editar mi correo registrado <ArrowRight size={17} aria-hidden="true" /></button> :
+      <button className="success-return" type="button" onClick={() => {
+       setStatus("idle"); setEditingEmail(false); setEmail(""); setConsent(false);
+       setError(""); setEmailInvalid(false); setConsentError(false); setConfirmationHeight(null);
+      }}>Escribir otro correo <ArrowRight size={17} aria-hidden="true" /></button>}
+     </div> : <form onSubmit={submit} noValidate>
+      <h3>{editingEmail ? "Corrige tu correo" : "Entérate del lanzamiento"}</h3>
+      <p>Un correo para avisarte. Cero vueltas.</p>
+      <label htmlFor="email">Tu correo institucional</label>
+      <div className={`email-field${emailInvalid ? " is-invalid" : ""}`}><Mail size={18} /><input
+       ref={emailInput} id="email" name="email" type="email" autoComplete="email"
+       placeholder="tu@utec.edu.pe" value={email}
+       onChange={e => { setEmail(e.target.value); setEmailInvalid(false); setError(""); }}
+       maxLength={254} pattern="[a-zA-Z0-9._%+-]+@utec[.]edu[.]pe"
+       title="Usa tu correo institucional @utec.edu.pe" required
+       aria-invalid={emailInvalid || undefined} aria-describedby={emailInvalid ? "email-error" : undefined}
+      /></div>
+      <div className="honeypot" aria-hidden="true"><label htmlFor="website">Sitio web</label><input id="website" name="website" tabIndex={-1} autoComplete="off" /></div>
+      <label className="consent"><input ref={consentInput} type="checkbox" checked={consent} onChange={e=>{setConsent(e.target.checked);if(e.target.checked)setConsentError(false);}} aria-invalid={consentError || undefined} aria-describedby={consentError ? "consent-error" : undefined} /><span>Acepto que Menúu use mi correo para avisarme del lanzamiento en UTEC. <button type="button" onClick={()=>privacy.current?.showModal()}>Ver privacidad</button></span></label>
+      <button className="button signup-button" type="submit" disabled={status === "loading"}>{status === "loading" ? "Guardando tu correo…" : editingEmail ? "Guardar cambio" : "Quiero estar en la lista"}<ArrowUpRight size={20} /></button>
+     </form>}
+    </div></div></section>
   </main>
-  <footer className="site-footer"><div className="container footer-inner"><span className="footer-brand"><img src="/images/menuu-logo.png" width="37" height="35" alt="" />Menúu</span><p>Tu antojo tiene punto de encuentro.</p><button type="button" onClick={()=>privacy.current?.showModal()}>Política de privacidad</button></div></footer>
+  <footer className="site-footer scroll-reveal"><div className="container footer-inner"><a className="footer-brand" href="#inicio" aria-label="Menúu, volver al inicio"><img src="/images/menuu-logo.png" width="37" height="35" alt="" /><span>Menú<span className="brand-last-letter">u</span></span></a><p>Tu antojo tiene punto de encuentro.</p><button type="button" onClick={()=>privacy.current?.showModal()}>Política de privacidad</button></div></footer>
+  {(consentError || error) && <aside className="consent-toast" id={consentError ? "consent-error" : "email-error"} role="alert"><CircleAlert size={22} aria-hidden="true" /><span>{consentError ? "Marca la casilla para aceptar el aviso antes de registrarte." : error}</span><button type="button" aria-label="Cerrar aviso" onClick={() => { setConsentError(false); setError(""); }}><X size={18} /></button></aside>}
   <dialog ref={privacy} className="privacy-dialog"><button className="close-dialog" aria-label="Cerrar aviso de privacidad" onClick={()=>privacy.current?.close()}><X /></button><span className="eyebrow">TUS DATOS</span><h2>Tu correo, para el lanzamiento.</h2><p>Menúu guarda tu correo, la fecha de inscripción y tu aceptación de este aviso para avisarte del lanzamiento de Menúu en UTEC.</p><p>El registro no es un pedido ni un pago. No solicitamos datos bancarios. La lista de correos no es pública.</p><p>Puedes retirar tu interés respondiendo al correo que recibas y solicitar que eliminemos tu inscripción. No usaremos este registro para campañas de terceros.</p><p className="privacy-version">Aviso de privacidad</p><button className="button" onClick={()=>privacy.current?.close()}>Entendido <Check size={18} /></button></dialog>
  </>;
 }
