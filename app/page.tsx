@@ -205,7 +205,9 @@ export default function Home() {
     null
   );
   const [editingEmail, setEditingEmail] = useState(false);
-  const [signupMethod, setSignupMethod] = useState<"google" | "email">(
+  const [signupMethod, setSignupMethod] = useState<
+    "google" | "email"
+  >(
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "google" : "email"
   );
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -855,7 +857,8 @@ export default function Home() {
             </span>
             <i>✳</i>
             <span>
-              <strong className="ticker-number">100%</strong> pensado para la U
+              <strong className="ticker-number">100%</strong>{" "}
+              pensado para la U
             </span>
           </div>
         </div>
@@ -1315,31 +1318,47 @@ export default function Home() {
                   </h3>
                   <p>Un correo para avisarte. Cero vueltas.</p>
                   <div className="signup-method-stage">
-                    {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                      <div
-                        className="signup-method-surface google-sso-wrapper"
-                        aria-hidden={signupMethod !== "google"}
-                        inert={signupMethod !== "google"}
-                      >
-                        <span className="signup-method-label">
-                          <Sparkles size={16} aria-hidden="true" /> CON GOOGLE
-                        </span>
+                    {!editingEmail &&
+                      process.env
+                        .NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
                         <div
-                          ref={googleBtnContainerRef}
-                          className="google-btn-container"
-                        />
-                        <small>Con tu cuenta institucional @utec.edu.pe.</small>
-                      </div>
-                    )}
+                          className="signup-method-surface google-sso-wrapper"
+                          aria-hidden={signupMethod !== "google"}
+                          inert={signupMethod !== "google"}
+                        >
+                          <span className="signup-method-label">
+                            <Sparkles
+                              size={16}
+                              aria-hidden="true"
+                            />{" "}
+                            Tu correo institucional
+                          </span>
+                          <div
+                            ref={googleBtnContainerRef}
+                            className="google-btn-container"
+                          />
+                          <small>
+                            Con tu cuenta institucional
+                            @utec.edu.pe.
+                          </small>
+                        </div>
+                      )}
                     <div
                       className="signup-method-surface email-signup"
-                      aria-hidden={signupMethod !== "email" && !editingEmail}
-                      inert={signupMethod !== "email" && !editingEmail}
+                      aria-hidden={
+                        signupMethod !== "email" && !editingEmail
+                      }
+                      inert={
+                        signupMethod !== "email" && !editingEmail
+                      }
                     >
-                      <span className="signup-method-label">
-                        <Mail size={16} aria-hidden="true" /> CON MI CORREO
-                      </span>
-                      <label htmlFor="email">Tu correo institucional</label>
+                      <label
+                        className="signup-method-label"
+                        htmlFor="email"
+                      >
+                        <Mail size={16} aria-hidden="true" /> Tu
+                        correo institucional
+                      </label>
                       <div
                         className={`email-field${emailInvalid ? " is-invalid" : ""}`}
                       >
@@ -1361,14 +1380,23 @@ export default function Home() {
                           pattern="[a-zA-Z0-9._%+-]+@utec[.]edu[.]pe"
                           title="Usa tu correo institucional @utec.edu.pe"
                           required
-                          aria-invalid={emailInvalid || undefined}
+                          aria-invalid={
+                            emailInvalid || undefined
+                          }
                           aria-describedby={
-                            emailInvalid ? "email-error" : undefined
+                            emailInvalid
+                              ? "email-error"
+                              : undefined
                           }
                         />
                       </div>
-                      <div className="honeypot" aria-hidden="true">
-                        <label htmlFor="website">Sitio web</label>
+                      <div
+                        className="honeypot"
+                        aria-hidden="true"
+                      >
+                        <label htmlFor="website">
+                          Sitio web
+                        </label>
                         <input
                           id="website"
                           name="website"
@@ -1383,19 +1411,27 @@ export default function Home() {
                           checked={consent}
                           onChange={(e) => {
                             setConsent(e.target.checked);
-                            if (e.target.checked) setConsentError(false);
+
+                            if (e.target.checked)
+                              setConsentError(false);
                           }}
-                          aria-invalid={consentError || undefined}
+                          aria-invalid={
+                            consentError || undefined
+                          }
                           aria-describedby={
-                            consentError ? "consent-error" : undefined
+                            consentError
+                              ? "consent-error"
+                              : undefined
                           }
                         />
                         <span>
-                          Acepto que Menúu use mi correo para avisarme del
-                          lanzamiento en UTEC.{" "}
+                          Acepto que Menúu me avise por correo
+                          del lanzamiento en UTEC.{" "}
                           <button
                             type="button"
-                            onClick={() => privacy.current?.showModal()}
+                            onClick={() =>
+                              privacy.current?.showModal()
+                            }
                           >
                             Ver privacidad
                           </button>
@@ -1415,32 +1451,41 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                    <button
-                      type="button"
-                      className="signup-alternative"
-                      disabled={status === "loading"}
-                      onClick={() => {
-                        setSignupMethod(
-                          signupMethod === "google" ? "email" : "google"
-                        );
-                        setStatus("idle");
-                        setError("");
-                        setEmailInvalid(false);
-                        setConsentError(false);
-                      }}
-                    >
-                      {signupMethod === "google" ? (
-                        <Mail size={18} aria-hidden="true" />
-                      ) : (
-                        <Sparkles size={18} aria-hidden="true" />
-                      )}
-                      {signupMethod === "google"
-                        ? "Prefiero escribir mi correo"
-                        : "Prefiero usar Google"}
-                      <ArrowRight size={17} aria-hidden="true" />
-                    </button>
-                  )}
+                  {!editingEmail &&
+                    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                      <button
+                        type="button"
+                        className="signup-alternative"
+                        disabled={status === "loading"}
+                        onClick={() => {
+                          setSignupMethod(
+                            signupMethod === "google"
+                              ? "email"
+                              : "google"
+                          );
+                          setStatus("idle");
+                          setError("");
+                          setEmailInvalid(false);
+                          setConsentError(false);
+                        }}
+                      >
+                        {signupMethod === "google" ? (
+                          <Mail size={18} aria-hidden="true" />
+                        ) : (
+                          <Sparkles
+                            size={18}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {signupMethod === "google"
+                          ? "Prefiero escribir mi correo"
+                          : "Prefiero usar Google"}
+                        <ArrowRight
+                          size={17}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
                 </form>
               )}
             </div>

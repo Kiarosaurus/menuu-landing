@@ -664,7 +664,7 @@ h2 {
   align-items: center;
 }
 .signup-panel {
-  padding: 30px;
+  padding: 24px;
   background: #faffed;
   border: 1px solid #173d2e12;
   border-radius: 15px;
@@ -778,15 +778,11 @@ h2 {
 }
 .signup-method-stage {
   display: grid;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 .signup-method-surface {
   grid-area: 1 / 1;
   min-width: 0;
-  padding: 18px;
-  border: 1px solid #efc6a2;
-  border-radius: 14px;
-  background: #fff4e5;
 }
 .signup-method-surface[aria-hidden="true"] {
   visibility: hidden;
@@ -796,16 +792,16 @@ h2 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 12px;
 }
-.signup-method-label {
+.signup-panel .signup-method-surface .signup-method-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--orange-ink);
-  font-size: var(--type-label);
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  color: var(--ink);
+  font-size: var(--type-small);
+  font-weight: 600;
+  line-height: 1.4;
 }
 .google-sso-wrapper .signup-method-label {
   align-self: center;
@@ -816,14 +812,15 @@ h2 {
   text-align: center;
 }
 .signup-panel .signup-method-surface.email-signup > label {
-  margin-top: 12px;
+  margin-top: 0;
   margin-bottom: 6px;
 }
 .email-signup .consent {
-  margin-top: 12px;
+  margin-top: 10px;
+  padding-block: 0;
 }
 .email-signup .signup-button {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 .google-btn-container {
   position: relative;
@@ -857,25 +854,24 @@ h2 {
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 48px;
-  margin-top: 12px;
-  padding: 10px 14px;
-  border: 1px dashed #a5ba8e;
-  border-radius: 10px;
-  background: #f3f8e9;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
   color: var(--green);
   font: inherit;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  transition: background 0.2s ease;
 }
 .signup-alternative svg:last-child {
   margin-left: auto;
   transition: transform 0.2s ease;
 }
 .signup-alternative:hover {
-  background: #e9f2d8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .signup-alternative:hover svg:last-child {
   transform: translateX(3px);
@@ -888,7 +884,6 @@ h2 {
   cursor: wait;
 }
 @media (prefers-reduced-motion: reduce) {
-  .signup-alternative,
   .signup-alternative svg:last-child {
     transition: none;
   }
