@@ -402,7 +402,8 @@ h1 .highlight {
 }
 .ticker .ticker-number span:last-child {
   font-size: 1rem;
-  transform: translateY(-2px) scaleX(0.7);
+  transform: translateY(-2px) scaleX(1.45);
+  transform-origin: center;
 }
 .section {
   padding-top: 95px;
@@ -1463,6 +1464,7 @@ h2 {
   }
   .ticker .ticker-number span:last-child {
     font-size: 0.9rem;
+    transform: translateY(-2px) scaleX(1.5);
   }
   .section {
     padding-block: 3.5rem;
@@ -2860,17 +2862,6 @@ html {
     transform: scaleX(1);
   }
 }
-@keyframes mobile-tongue-enter {
-  from {
-    opacity: 0;
-    transform: translateY(9px) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 /* Los enlaces apuntan al contenido, con aire visible bajo el header de 60px. */
 #por-que,
 #como-funciona,
@@ -3622,8 +3613,8 @@ html::-webkit-scrollbar-thumb:hover {
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows 0.28s ease,
-    opacity 0.24s ease;
+    grid-template-rows 0.44s cubic-bezier(0.42, 0, 0.58, 1),
+    opacity 0.36s ease;
 }
 .faq-item.is-open .faq-answer {
   grid-template-rows: 1fr;
@@ -3929,23 +3920,10 @@ html::-webkit-scrollbar-thumb:hover {
     stroke-dashoffset: 0;
     animation: none;
   }
-  .how.scroll-reveal.is-visible .how-tongue-badge {
-    animation: mobile-tongue-enter 0.48s ease-out both;
-  }
   .google-cloud-outline-desktop {
     display: none;
   }
   .google-cloud-outline-mobile {
     display: block;
-  }
-  .faq-answer {
-    display: block;
-    height: 0;
-    overflow: hidden;
-    opacity: 1;
-    transition: height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .faq-item.is-open .faq-answer {
-    height: var(--faq-answer-height, 0px);
   }
 }

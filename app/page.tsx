@@ -489,33 +489,6 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    const answers =
-      faqSectionRef.current?.querySelectorAll<HTMLElement>(
-        ".faq-answer-inner"
-      );
-
-    if (!answers) return;
-
-    const syncHeight = (inner: HTMLElement) => {
-      inner.parentElement?.style.setProperty(
-        "--faq-answer-height",
-        `${Math.ceil(inner.scrollHeight)}px`
-      );
-    };
-    const observer = new ResizeObserver((entries) => {
-      entries.forEach((entry) =>
-        syncHeight(entry.target as HTMLElement)
-      );
-    });
-
-    answers.forEach((inner) => {
-      observer.observe(inner);
-      syncHeight(inner);
-    });
-
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
     let cancelled = false;
     const measure = () => {
       if (cancelled) return;
