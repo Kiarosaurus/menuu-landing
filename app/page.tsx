@@ -18,7 +18,6 @@ import {
   ShoppingBag,
   Mail,
   CircleAlert,
-  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import Script from "next/script";
@@ -246,7 +245,13 @@ export default function Home() {
     const panel = signupPanelRef.current;
     const form = panel?.querySelector("form");
 
-    if (!panel || !form) return;
+    if (!panel) return;
+
+    if (!form) {
+      panel.style.minHeight = "";
+
+      return;
+    }
 
     const syncHeight = () => {
       const styles = getComputedStyle(panel);
@@ -1242,25 +1247,24 @@ export default function Home() {
                   className="success already-registered"
                   role="status"
                 >
-                  <span>
-                    <Sparkles size={30} />
+                  <span className="success-mark">
+                    <Check size={30} aria-hidden="true" />
                   </span>
                   <h3>¡Ya estás en la lista!</h3>
                   <p>
                     {email ? (
                       <>
-                        El correo <strong>{email}</strong> ya se
-                        encuentra registrado en la lista de
-                        espera de UTEC.
+                        El correo <strong>{email}</strong> ya
+                        está registrado para el lanzamiento en
+                        UTEC.
                       </>
                     ) : (
-                      "Tu correo ya se encuentra registrado en la lista de espera de UTEC."
-                    )}{" "}
-                    Te avisaremos apenas Menúu esté disponible.
+                      "Tu correo ya está registrado para el lanzamiento en UTEC."
+                    )}
                   </p>
                   <small>
-                    No te preocupes, tu lugar para el lanzamiento
-                    está asegurado.
+                    Te avisaremos apenas Menúu esté disponible.
+                    Tu lugar está asegurado.
                   </small>
                   <button
                     type="button"

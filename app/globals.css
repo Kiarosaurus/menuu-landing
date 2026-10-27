@@ -816,8 +816,41 @@ h2 {
 }
 .google-cloud-outline path {
   stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+.google-sso-wrapper:not([aria-hidden="true"])
+  .google-cloud-outline {
+  animation:
+    google-cloud-enter 0.7s cubic-bezier(0.2, 1, 0.3, 1) both,
+    google-cloud-float 3s ease-in-out 0.7s infinite;
+}
+@keyframes google-cloud-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92) rotate(-4deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(-1deg);
+  }
+}
+@keyframes google-cloud-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .google-sso-wrapper:not([aria-hidden="true"])
+    .google-cloud-outline {
+    animation: none;
+  }
 }
 .signup-panel .signup-method-surface .signup-method-label {
   display: inline-flex;
@@ -3315,6 +3348,55 @@ html::-webkit-scrollbar-thumb:hover {
   animation: success-mark-enter 0.55s
     cubic-bezier(0.2, 1.35, 0.35, 1) both;
 }
+.success.already-registered {
+  animation: registered-content-enter 0.35s ease-out both;
+}
+.success.already-registered .success-mark {
+  animation: registered-check-wink 0.78s ease-out both;
+}
+.success.already-registered > span {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 12px;
+}
+.success.already-registered p {
+  margin-top: 10px;
+}
+.success.already-registered small {
+  margin-top: 12px;
+}
+.success.already-registered .success-reset-btn {
+  margin-top: 18px;
+}
+@keyframes registered-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes registered-check-wink {
+  0% {
+    opacity: 0;
+    transform: scale(0.65) rotate(-12deg);
+  }
+  48% {
+    opacity: 1;
+    transform: scale(1.1) rotate(6deg);
+  }
+  63% {
+    transform: scale(1.04, 0.48) rotate(-5deg);
+  }
+  82% {
+    transform: scale(1.04, 1.08) rotate(3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
 .success-mark svg {
   stroke-dasharray: 38;
   stroke-dashoffset: 38;
@@ -3336,6 +3418,7 @@ html::-webkit-scrollbar-thumb:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .success.already-registered,
   .success .success-mark,
   .success-mark svg {
     animation: none;
