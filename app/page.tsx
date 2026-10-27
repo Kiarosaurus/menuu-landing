@@ -1,6 +1,7 @@
 "use client";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type SubmitEvent,
@@ -217,6 +218,8 @@ export default function Home() {
   const faqSectionRef = useRef<HTMLElement>(null);
   const faqPhotoRef = useRef<HTMLElement>(null);
   const lastFaqRef = useRef<HTMLDivElement>(null);
+  const faqBeforeRects = useRef<number[] | null>(null);
+  const faqMotionAnimations = useRef<Animation[]>([]);
   const [pointerEntered, setPointerEntered] = useState(() => {
     if (typeof window !== "undefined") {
       return window.matchMedia(
@@ -599,6 +602,41 @@ export default function Home() {
       window.removeEventListener("resize", measure);
     };
   }, [openFaq]);
+  useLayoutEffect(() => {
+    const before = faqBeforeRects.current;
+
+    if (!before) return;
+    faqBeforeRects.current = null;
+
+    const items =
+      faqSectionRef.current?.querySelectorAll<HTMLElement>(
+        ".faq-item"
+      );
+
+    if (!items) return;
+
+    faqMotionAnimations.current = Array.from(items).flatMap(
+      (item, index) => {
+        const distance =
+          before[index] - item.getBoundingClientRect().top;
+
+        if (Math.abs(distance) < 1) return [];
+
+        return [
+          item.animate(
+            [
+              { transform: `translateY(${distance}px)` },
+              { transform: "translateY(0)" },
+            ],
+            {
+              duration: 320,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            }
+          ),
+        ];
+      }
+    );
+  }, [openFaq]);
   const current = steps[step];
   const Icon = current.icon;
 
@@ -915,14 +953,36 @@ export default function Home() {
             </span>
             <i>✳</i>
             <span>
-              <strong
-                className="ticker-number"
+              <svg
+                className="ticker-percent-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 role="img"
                 aria-label="100%"
               >
-                <span aria-hidden="true">100</span>
-                <span aria-hidden="true">%</span>
-              </strong>{" "}
+                <path d="M2 4 4 2v8" />
+                <rect
+                  x="7"
+                  y="2"
+                  width="5"
+                  height="8"
+                  rx="2.5"
+                />
+                <rect
+                  x="16"
+                  y="2"
+                  width="5"
+                  height="8"
+                  rx="2.5"
+                />
+                <circle cx="8" cy="14" r="1" />
+                <path d="m17 12-10 10" />
+                <circle cx="16" cy="20" r="1" />
+              </svg>{" "}
               pensado para la UTEC
             </span>
           </div>
@@ -1173,11 +1233,35 @@ export default function Home() {
                   id={`faq-question-${index}`}
                   aria-expanded={openFaq === index}
                   aria-controls={`faq-answer-${index}`}
-                  onClick={() =>
+                  onClick={() => {
+                    faqMotionAnimations.current.forEach(
+                      (animation) => animation.cancel()
+                    );
+                    faqMotionAnimations.current = [];
+
+                    if (
+                      window.matchMedia("(max-width: 48rem)")
+                        .matches &&
+                      !window.matchMedia(
+                        "(prefers-reduced-motion: reduce)"
+                      ).matches
+                    ) {
+                      faqBeforeRects.current = Array.from(
+                        faqSectionRef.current?.querySelectorAll<HTMLElement>(
+                          ".faq-item"
+                        ) ?? []
+                      ).map(
+                        (item) =>
+                          item.getBoundingClientRect().top
+                      );
+                    } else {
+                      faqBeforeRects.current = null;
+                    }
+
                     setOpenFaq((current) =>
                       current === index ? null : index
-                    )
-                  }
+                    );
+                  }}
                 >
                   {q}
                   <Plus size={20} aria-hidden="true" />
