@@ -205,6 +205,9 @@ export default function Home() {
     null
   );
   const [editingEmail, setEditingEmail] = useState(false);
+  const [signupMethod, setSignupMethod] = useState<"google" | "email">(
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "google" : "email"
+  );
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [faqPhotoHeight, setFaqPhotoHeight] = useState<
     number | null
@@ -223,9 +226,6 @@ export default function Home() {
     return false;
   });
   const pointerRef = useRef<HTMLDivElement>(null);
-  const [confirmationHeight, setConfirmationHeight] = useState<
-    number | null
-  >(null);
   const [status, setStatus] = useState<
     | "idle"
     | "loading"
@@ -288,7 +288,12 @@ export default function Home() {
               );
             }
 
-            if (data.email) setEmail(data.email);
+            if (data.email) {
+              setEmail(data.email);
+              setRegisteredEmail(data.email);
+            }
+            setEditToken(null);
+            setEditingEmail(false);
 
             if (data.alreadyRegistered) {
               setStatus("already_registered");
@@ -334,7 +339,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (status !== "idle") return;
+    if (status !== "idle" || signupMethod !== "google") return;
 
     // Intentar inicializar de inmediato si ya cargó
     if (
@@ -366,7 +371,7 @@ export default function Home() {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [status]);
+  }, [status, signupMethod]);
 
   useEffect(() => {
     const element = howCopy.current;
@@ -652,10 +657,6 @@ export default function Home() {
       return;
     }
     setEmailInvalid(false);
-    setConfirmationHeight(
-      e.currentTarget.parentElement?.getBoundingClientRect()
-        .height || null
-    );
     const form = new FormData(e.currentTarget);
 
     setStatus("loading");
@@ -853,7 +854,9 @@ export default function Home() {
               <QrCode size={20} /> QR al recibir
             </span>
             <i>✳</i>
-            <span>100% pensado para la U</span>
+            <span>
+              <strong className="ticker-number">100%</strong> pensado para la U
+            </span>
           </div>
         </div>
         <section className="section container why scroll-reveal">
@@ -1209,16 +1212,7 @@ export default function Home() {
                 Pronto, en tu break.
               </span>
             </div>
-            <div
-              className="signup-panel"
-              style={
-                status === "success" && confirmationHeight
-                  ? {
-                      minHeight: confirmationHeight,
-                    }
-                  : undefined
-              }
-            >
+            <div className="signup-panel">
               {status === "already_registered" ? (
                 <div
                   className="success already-registered"
@@ -1250,6 +1244,8 @@ export default function Home() {
                     onClick={() => {
                       setStatus("idle");
                       setEmail("");
+                      setRegisteredEmail("");
+                      setEditToken(null);
                     }}
                   >
                     Inscribir otro correo
@@ -1276,11 +1272,11 @@ export default function Home() {
                       onClick={() => {
                         setStatus("idle");
                         setEditingEmail(true);
+                        setSignupMethod("email");
                         setEmail(registeredEmail);
                         setError("");
                         setEmailInvalid(false);
                         setConsentError(false);
-                        setConfirmationHeight(null);
                         requestAnimationFrame(() =>
                           emailInput.current?.focus()
                         );
@@ -1297,11 +1293,12 @@ export default function Home() {
                         setStatus("idle");
                         setEditingEmail(false);
                         setEmail("");
+                        setRegisteredEmail("");
+                        setEditToken(null);
                         setConsent(false);
                         setError("");
                         setEmailInvalid(false);
                         setConsentError(false);
-                        setConfirmationHeight(null);
                       }}
                     >
                       Escribir otro correo{" "}
@@ -1317,97 +1314,122 @@ export default function Home() {
                       : "Entérate del lanzamiento"}
                   </h3>
                   <p>Un correo para avisarte. Cero vueltas.</p>
-                  <div className="google-sso-wrapper">
-                    <div
-                      ref={googleBtnContainerRef}
-                      className="google-btn-container"
-                    />
-                  </div>
-                  <div className="signup-divider">
-                    <span>o ingresa tu correo manualmente</span>
-                  </div>
-                  <label htmlFor="email">
-                    Tu correo institucional
-                  </label>
-                  <div
-                    className={`email-field${emailInvalid ? " is-invalid" : ""}`}
-                  >
-                    <Mail size={18} />
-                    <input
-                      ref={emailInput}
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="tu@utec.edu.pe"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setEmailInvalid(false);
-                        setError("");
-                      }}
-                      maxLength={254}
-                      pattern="[a-zA-Z0-9._%+-]+@utec[.]edu[.]pe"
-                      title="Usa tu correo institucional @utec.edu.pe"
-                      required
-                      aria-invalid={emailInvalid || undefined}
-                      aria-describedby={
-                        emailInvalid ? "email-error" : undefined
-                      }
-                    />
-                  </div>
-                  <div className="honeypot" aria-hidden="true">
-                    <label htmlFor="website">Sitio web</label>
-                    <input
-                      id="website"
-                      name="website"
-                      tabIndex={-1}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <label className="consent">
-                    <input
-                      ref={consentInput}
-                      type="checkbox"
-                      checked={consent}
-                      onChange={(e) => {
-                        setConsent(e.target.checked);
-
-                        if (e.target.checked)
-                          setConsentError(false);
-                      }}
-                      aria-invalid={consentError || undefined}
-                      aria-describedby={
-                        consentError
-                          ? "consent-error"
-                          : undefined
-                      }
-                    />
-                    <span>
-                      Acepto que Menúu use mi correo para
-                      avisarme del lanzamiento en UTEC.{" "}
+                  {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                    <div className="signup-methods" aria-label="Método de inscripción">
                       <button
                         type="button"
-                        onClick={() =>
-                          privacy.current?.showModal()
-                        }
+                        className={signupMethod === "google" ? "is-active" : ""}
+                        aria-pressed={signupMethod === "google"}
+                        disabled={status === "loading"}
+                        onClick={() => {
+                          setSignupMethod("google");
+                          setStatus("idle");
+                          setError("");
+                          setConsentError(false);
+                        }}
                       >
-                        Ver privacidad
+                        Con Google
                       </button>
-                    </span>
-                  </label>
-                  <button
-                    className="button signup-button"
-                    type="submit"
-                    disabled={status === "loading"}
-                  >
-                    {status === "loading"
-                      ? "Guardando tu correo…"
-                      : editingEmail
-                        ? "Guardar cambio"
-                        : "Quiero estar en la lista"}
-                    <ArrowUpRight size={20} />
-                  </button>
+                      <button
+                        type="button"
+                        className={signupMethod === "email" ? "is-active" : ""}
+                        aria-pressed={signupMethod === "email"}
+                        disabled={status === "loading"}
+                        onClick={() => {
+                          setSignupMethod("email");
+                          setStatus("idle");
+                          setError("");
+                        }}
+                      >
+                        Con mi correo
+                      </button>
+                    </div>
+                  )}
+                  {signupMethod === "google" && !editingEmail ? (
+                    <div className="google-sso-wrapper">
+                      <div
+                        ref={googleBtnContainerRef}
+                        className="google-btn-container"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <label htmlFor="email">Tu correo institucional</label>
+                      <div
+                        className={`email-field${emailInvalid ? " is-invalid" : ""}`}
+                      >
+                        <Mail size={18} />
+                        <input
+                          ref={emailInput}
+                          id="email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="tu@utec.edu.pe"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            setEmailInvalid(false);
+                            setError("");
+                          }}
+                          maxLength={254}
+                          pattern="[a-zA-Z0-9._%+-]+@utec[.]edu[.]pe"
+                          title="Usa tu correo institucional @utec.edu.pe"
+                          required
+                          aria-invalid={emailInvalid || undefined}
+                          aria-describedby={
+                            emailInvalid ? "email-error" : undefined
+                          }
+                        />
+                      </div>
+                      <div className="honeypot" aria-hidden="true">
+                        <label htmlFor="website">Sitio web</label>
+                        <input
+                          id="website"
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                        />
+                      </div>
+                      <label className="consent">
+                        <input
+                          ref={consentInput}
+                          type="checkbox"
+                          checked={consent}
+                          onChange={(e) => {
+                            setConsent(e.target.checked);
+                            if (e.target.checked) setConsentError(false);
+                          }}
+                          aria-invalid={consentError || undefined}
+                          aria-describedby={
+                            consentError ? "consent-error" : undefined
+                          }
+                        />
+                        <span>
+                          Acepto que Menúu use mi correo para avisarme del
+                          lanzamiento en UTEC.{" "}
+                          <button
+                            type="button"
+                            onClick={() => privacy.current?.showModal()}
+                          >
+                            Ver privacidad
+                          </button>
+                        </span>
+                      </label>
+                      <button
+                        className="button signup-button"
+                        type="submit"
+                        disabled={status === "loading"}
+                      >
+                        {status === "loading"
+                          ? "Guardando tu correo…"
+                          : editingEmail
+                            ? "Guardar cambio"
+                            : "Quiero estar en la lista"}
+                        <ArrowUpRight size={20} />
+                      </button>
+                    </>
+                  )}
                 </form>
               )}
             </div>
