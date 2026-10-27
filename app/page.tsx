@@ -1171,9 +1171,9 @@ export default function Home() {
               >
                 <div
                   className={`demo-visual demo-visual-step-${step}`}
-                  key={`visual-${step}`}
                 >
                   <Image
+                    key={current.image}
                     src={current.image}
                     alt={current.alt}
                     width={500}

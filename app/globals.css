@@ -2702,7 +2702,6 @@ html {
   min-height: 0;
   overflow: hidden;
   background-color: #f7f3e9;
-  animation: appear 0.3s ease;
 }
 .demo-visual > img {
   position: relative;
@@ -2712,6 +2711,15 @@ html {
   height: 100%;
   object-fit: cover;
   object-position: center 52%;
+  animation: demo-photo-appear 0.3s ease both;
+}
+@keyframes demo-photo-appear {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .demo-visual-step-1 > img {
   object-position: center 42%;
