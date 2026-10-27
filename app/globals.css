@@ -777,51 +777,123 @@ h2 {
   color: var(--green);
 }
 .google-sso-wrapper {
-  margin-top: 22px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #efc6a2;
+  border-radius: 14px;
+  background: #fff4e5;
+}
+.google-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  color: var(--orange-ink);
+  font-size: var(--type-label);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+.google-sso-wrapper small {
+  color: var(--text-secondary);
+  font-size: var(--type-small);
+  text-align: center;
 }
 .google-btn-container {
+  position: relative;
   display: flex;
   justify-content: center;
-  width: 100%;
-  min-height: 44px;
+  width: min(100%, 320px);
+  height: 44px;
+  overflow: hidden;
+}
+.google-btn-container::before {
+  content: "Preparando acceso con Google…";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfd9cc;
+  border-radius: 999px;
+  background: white;
+  color: var(--text-secondary);
+  font-size: var(--type-small);
+}
+.google-btn-container > * {
+  position: relative;
+  z-index: 1;
 }
 .google-btn-container > iframe {
   max-width: 100% !important;
 }
-.signup-methods {
+.signup-alternative {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  margin-top: 22px;
-  padding: 4px;
-  border: 1px solid #dce4cc;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px dashed #a5ba8e;
   border-radius: 10px;
-  background: #eef3e6;
+  background: #f3f8e9;
+  color: var(--green);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
-.signup-methods button {
-  flex: 1;
+.signup-alternative svg:last-child {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+.signup-alternative:hover {
+  background: #e9f2d8;
+}
+.signup-alternative:hover svg:last-child {
+  transform: translateX(3px);
+}
+.signup-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
+  margin-top: 12px;
+  padding: 0;
   border: 0;
-  border-radius: 7px;
   background: transparent;
   color: var(--green);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
-.signup-methods button.is-active {
-  background: white;
-  box-shadow: 0 1px 4px #173d2e1c;
+.signup-back svg {
+  transform: rotate(180deg);
 }
-.signup-methods button:focus-visible {
+.signup-back + label {
+  margin-top: 12px !important;
+}
+.signup-alternative:focus-visible,
+.signup-back:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
-.signup-methods button:disabled {
+.signup-alternative:disabled,
+.signup-back:disabled {
   cursor: wait;
+}
+@media (prefers-reduced-motion: reduce) {
+  .signup-alternative,
+  .signup-alternative svg:last-child {
+    transition: none;
+  }
+  .signup-alternative:hover svg:last-child {
+    transform: none;
+  }
 }
 .success-reset-btn {
   margin-top: 16px;

@@ -315,7 +315,7 @@ export default function Home() {
       googleBtnContainerRef.current.innerHTML = "";
       const containerWidth = Math.min(
         320,
-        window.innerWidth - 60
+        Math.floor(googleBtnContainerRef.current.clientWidth)
       );
 
       window.google.accounts.id.renderButton(
@@ -1314,26 +1314,21 @@ export default function Home() {
                       : "Entérate del lanzamiento"}
                   </h3>
                   <p>Un correo para avisarte. Cero vueltas.</p>
-                  {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                    <div className="signup-methods" aria-label="Método de inscripción">
+                  {signupMethod === "google" && !editingEmail ? (
+                    <>
+                      <div className="google-sso-wrapper">
+                        <span className="google-card-label">
+                          <Sparkles size={16} aria-hidden="true" /> EN UN CLIC
+                        </span>
+                        <div
+                          ref={googleBtnContainerRef}
+                          className="google-btn-container"
+                        />
+                        <small>Con tu cuenta institucional @utec.edu.pe.</small>
+                      </div>
                       <button
                         type="button"
-                        className={signupMethod === "google" ? "is-active" : ""}
-                        aria-pressed={signupMethod === "google"}
-                        disabled={status === "loading"}
-                        onClick={() => {
-                          setSignupMethod("google");
-                          setStatus("idle");
-                          setError("");
-                          setConsentError(false);
-                        }}
-                      >
-                        Con Google
-                      </button>
-                      <button
-                        type="button"
-                        className={signupMethod === "email" ? "is-active" : ""}
-                        aria-pressed={signupMethod === "email"}
+                        className="signup-alternative"
                         disabled={status === "loading"}
                         onClick={() => {
                           setSignupMethod("email");
@@ -1341,19 +1336,29 @@ export default function Home() {
                           setError("");
                         }}
                       >
-                        Con mi correo
+                        <Mail size={18} aria-hidden="true" />
+                        Prefiero escribir mi correo
+                        <ArrowRight size={17} aria-hidden="true" />
                       </button>
-                    </div>
-                  )}
-                  {signupMethod === "google" && !editingEmail ? (
-                    <div className="google-sso-wrapper">
-                      <div
-                        ref={googleBtnContainerRef}
-                        className="google-btn-container"
-                      />
-                    </div>
+                    </>
                   ) : (
                     <>
+                      {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                        <button
+                          type="button"
+                          className="signup-back"
+                          disabled={status === "loading"}
+                          onClick={() => {
+                            setSignupMethod("google");
+                            setStatus("idle");
+                            setError("");
+                            setConsentError(false);
+                          }}
+                        >
+                          <ArrowRight size={17} aria-hidden="true" />
+                          Usar Google
+                        </button>
+                      )}
                       <label htmlFor="email">Tu correo institucional</label>
                       <div
                         className={`email-field${emailInvalid ? " is-invalid" : ""}`}
