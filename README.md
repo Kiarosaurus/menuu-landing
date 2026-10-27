@@ -9,7 +9,7 @@ Proyecto desarrollado con Next.js 16 (App Router), React 19, Tailwind CSS y Driz
 Para iniciar en local:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
