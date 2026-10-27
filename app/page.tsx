@@ -489,6 +489,33 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
+    const answers =
+      faqSectionRef.current?.querySelectorAll<HTMLElement>(
+        ".faq-answer-inner"
+      );
+
+    if (!answers) return;
+
+    const syncHeight = (inner: HTMLElement) => {
+      inner.parentElement?.style.setProperty(
+        "--faq-answer-height",
+        `${Math.ceil(inner.scrollHeight)}px`
+      );
+    };
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach((entry) =>
+        syncHeight(entry.target as HTMLElement)
+      );
+    });
+
+    answers.forEach((inner) => {
+      observer.observe(inner);
+      syncHeight(inner);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
     let cancelled = false;
     const measure = () => {
       if (cancelled) return;
@@ -553,11 +580,12 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 48rem)");
     const measure = () => {
       if (
         openFaq === null ||
         openFaq === faqs.length - 1 ||
-        window.innerWidth <= 768 ||
+        mobile.matches ||
         !faqPhotoRef.current ||
         !lastFaqRef.current
       ) {
@@ -572,17 +600,29 @@ export default function Home() {
 
       setFaqWaveGap(gap >= 14 ? gap : 0);
     };
-    const frame = requestAnimationFrame(measure);
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(() => {
+      if (!mobile.matches) measure();
+    });
+    const syncObservers = () => {
+      observer.disconnect();
 
-    faqSectionRef.current
-      ?.querySelectorAll(".faq-item")
-      .forEach((item) => observer.observe(item));
+      if (!mobile.matches) {
+        faqSectionRef.current
+          ?.querySelectorAll(".faq-item")
+          .forEach((item) => observer.observe(item));
+      }
+
+      measure();
+    };
+    const frame = requestAnimationFrame(syncObservers);
+
+    mobile.addEventListener("change", syncObservers);
     window.addEventListener("resize", measure);
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      mobile.removeEventListener("change", syncObservers);
       window.removeEventListener("resize", measure);
     };
   }, [openFaq]);
@@ -902,7 +942,14 @@ export default function Home() {
             </span>
             <i>✳</i>
             <span>
-              <strong className="ticker-number">100%</strong>{" "}
+              <strong
+                className="ticker-number"
+                role="img"
+                aria-label="100%"
+              >
+                <span aria-hidden="true">100</span>
+                <span aria-hidden="true">%</span>
+              </strong>{" "}
               pensado para la UTEC
             </span>
           </div>
