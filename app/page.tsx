@@ -219,6 +219,7 @@ export default function Home() {
   const faqPhotoRef = useRef<HTMLElement>(null);
   const lastFaqRef = useRef<HTMLDivElement>(null);
   const faqBeforeRects = useRef<number[] | null>(null);
+  const faqBeforePointerTop = useRef<number | null>(null);
   const faqMotionAnimations = useRef<Animation[]>([]);
   const [pointerEntered, setPointerEntered] = useState(() => {
     if (typeof window !== "undefined") {
@@ -604,9 +605,11 @@ export default function Home() {
   }, [openFaq]);
   useLayoutEffect(() => {
     const before = faqBeforeRects.current;
+    const pointerBefore = faqBeforePointerTop.current;
 
     if (!before) return;
     faqBeforeRects.current = null;
+    faqBeforePointerTop.current = null;
 
     const items =
       faqSectionRef.current?.querySelectorAll<HTMLElement>(
@@ -636,6 +639,38 @@ export default function Home() {
         ];
       }
     );
+
+    const pointer = pointerRef.current;
+
+    if (pointer && pointerBefore !== null) {
+      const targetOffset = openFaq === null ? 0 : -9;
+      const afterTop =
+        pointer
+          .querySelector(".faq-pointer-label")
+          ?.getBoundingClientRect().top ??
+        pointer.getBoundingClientRect().top;
+      const startOffset =
+        pointerBefore - (afterTop - targetOffset);
+
+      faqMotionAnimations.current.push(
+        pointer.animate(
+          [
+            {
+              opacity: openFaq === null ? 0 : 1,
+              transform: `translateY(${startOffset}px)`,
+            },
+            {
+              opacity: openFaq === null ? 1 : 0,
+              transform: `translateY(${targetOffset}px)`,
+            },
+          ],
+          {
+            duration: 320,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }
+        )
+      );
+    }
   }, [openFaq]);
   const current = steps[step];
   const Icon = current.icon;
@@ -964,19 +999,19 @@ export default function Home() {
                 role="img"
                 aria-label="100%"
               >
-                <path d="M2 4 4 2v8" />
+                <path d="M2 3 4 1v7" />
                 <rect
                   x="7"
-                  y="2"
+                  y="1"
                   width="5"
-                  height="8"
+                  height="7"
                   rx="2.5"
                 />
                 <rect
                   x="16"
-                  y="2"
+                  y="1"
                   width="5"
-                  height="8"
+                  height="7"
                   rx="2.5"
                 />
                 <circle cx="8" cy="14" r="1" />
@@ -1254,8 +1289,19 @@ export default function Home() {
                         (item) =>
                           item.getBoundingClientRect().top
                       );
+                      faqBeforePointerTop.current =
+                        pointerEntered &&
+                        (openFaq === null || openFaq === index)
+                          ? (pointerRef.current
+                              ?.querySelector(
+                                ".faq-pointer-label"
+                              )
+                              ?.getBoundingClientRect().top ??
+                            null)
+                          : null;
                     } else {
                       faqBeforeRects.current = null;
+                      faqBeforePointerTop.current = null;
                     }
 
                     setOpenFaq((current) =>

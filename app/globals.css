@@ -3907,6 +3907,19 @@ html::-webkit-scrollbar-thumb:hover {
   .faq-item.is-open .faq-answer-inner {
     animation: faq-mobile-reveal 0.28s ease-out both;
   }
+  .faq-pointer {
+    overflow: visible;
+    transition:
+      opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .faq-pointer.is-visible {
+    animation: faq-float 4.5s ease-in-out 0.7s infinite;
+  }
+  .faq-pointer.is-hidden {
+    visibility: visible;
+    transition: none;
+  }
 }
 @keyframes faq-mobile-reveal {
   from {
