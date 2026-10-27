@@ -634,6 +634,16 @@ h2 {
   gap: 75px;
   align-items: center;
 }
+@media (min-width: 48.0625rem) {
+  .signup-wrap {
+    display: flex;
+    align-items: center;
+    min-height: var(--signup-section-height, auto);
+  }
+  .signup {
+    width: 100%;
+  }
+}
 .signup h2 {
   margin-top: 23px;
 }

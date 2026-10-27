@@ -237,15 +237,17 @@ export default function Home() {
   const [error, setError] = useState("");
   const privacy = useRef<HTMLDialogElement>(null);
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+  const signupSectionRef = useRef<HTMLElement>(null);
   const signupPanelRef = useRef<HTMLDivElement>(null);
   const consentInput = useRef<HTMLInputElement>(null);
   const emailInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const panel = signupPanelRef.current;
+    const section = signupSectionRef.current;
     const form = panel?.querySelector("form");
 
-    if (!panel) return;
+    if (!panel || !section) return;
 
     if (!form) {
       panel.style.minHeight = "";
@@ -262,6 +264,14 @@ export default function Home() {
         parseFloat(styles.borderBottomWidth);
 
       panel.style.minHeight = `${Math.ceil(form.getBoundingClientRect().height + verticalSpace)}px`;
+
+      if (window.matchMedia("(min-width: 48.0625rem)").matches) {
+        section.style.removeProperty("--signup-section-height");
+        section.style.setProperty(
+          "--signup-section-height",
+          `${section.offsetHeight}px`
+        );
+      }
     };
 
     const observer = new ResizeObserver(syncHeight);
@@ -1218,7 +1228,10 @@ export default function Home() {
             </div>
           </div>
         </section>
-        <section className="signup-wrap scroll-reveal">
+        <section
+          className="signup-wrap scroll-reveal"
+          ref={signupSectionRef}
+        >
           <div className="container signup" id="lanzamiento">
             <div className="signup-copy">
               <span className="eyebrow">
