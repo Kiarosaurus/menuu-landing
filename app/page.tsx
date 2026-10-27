@@ -1179,16 +1179,16 @@ export default function Home() {
                     width={500}
                     height={350}
                   />
-                  <span className="demo-step">
-                    <Icon size={16} strokeWidth={1.8} />{" "}
-                    {current.tag}
-                  </span>
                   {current.imageNote && (
                     <span className="demo-image-note">
                       {current.imageNote}
                     </span>
                   )}
                 </div>
+                <span className="demo-step">
+                  <Icon size={16} strokeWidth={1.8} />{" "}
+                  {current.tag}
+                </span>
                 <div
                   className="demo-footer"
                   key={`footer-${step}`}
