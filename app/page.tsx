@@ -80,7 +80,7 @@ const steps = [
     name: "Paga con QR",
     title: "Primero llega. Luego pagas.",
     description:
-      "Escanea el QR y paga cuando recibas tu pedido.",
+      "Escanea el QR y paga cuando recibas tu pedido. No hay apuro.",
     icon: QrCode,
     tag: "03 / PAGA",
     imageNote: "QR ILUSTRATIVO",
@@ -898,12 +898,12 @@ export default function Home() {
             </span>
             <i>✳</i>
             <span>
-              <QrCode size={20} /> QR al recibir
+              <QrCode size={20} /> paga con QR al recibir
             </span>
             <i>✳</i>
             <span>
               <strong className="ticker-number">100%</strong>{" "}
-              pensado para la U
+              pensado para la UTEC
             </span>
           </div>
         </div>
@@ -1056,9 +1056,6 @@ export default function Home() {
               >
                 <div
                   className={`demo-visual demo-visual-step-${step}`}
-                  style={{
-                    backgroundImage: `url("${current.image}")`,
-                  }}
                   key={`visual-${step}`}
                 >
                   <Image
@@ -1366,13 +1363,22 @@ export default function Home() {
                         >
                           <div className="google-cloud">
                             <svg
-                              className="google-cloud-outline"
+                              className="google-cloud-outline google-cloud-outline-desktop"
                               viewBox="0 0 500 200"
                               preserveAspectRatio="none"
                               fill="none"
                               aria-hidden="true"
                             >
                               <path d="M52 39C62 19 91 16 110 27C126 8 158 7 179 23C198 10 224 12 239 25C259 8 291 8 309 25C333 10 365 15 376 35C403 24 433 34 441 56C468 58 482 79 468 99C484 119 470 140 444 142C435 166 404 177 380 165C361 186 326 187 306 170C284 189 250 190 230 173C204 187 171 184 154 167C129 182 94 176 80 156C52 160 28 144 29 123C9 109 11 83 32 69C27 56 35 44 52 39Z" />
+                            </svg>
+                            <svg
+                              className="google-cloud-outline google-cloud-outline-mobile"
+                              viewBox="0 0 320 260"
+                              preserveAspectRatio="none"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path d="M54 28C70 10 93 10 108 24C123 8 148 9 160 24C178 7 205 10 217 28C243 13 268 29 267 48C294 49 308 73 295 91C315 110 311 135 295 146C311 170 295 194 270 193C265 220 237 230 218 216C203 240 174 242 160 226C139 244 111 237 102 219C77 229 52 211 53 190C25 187 13 163 26 144C8 125 10 99 29 89C16 64 30 37 54 28Z" />
                             </svg>
                             <span className="signup-method-label">
                               Regístrate con Google
