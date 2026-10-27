@@ -238,8 +238,38 @@ export default function Home() {
   const [error, setError] = useState("");
   const privacy = useRef<HTMLDialogElement>(null);
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+  const signupPanelRef = useRef<HTMLDivElement>(null);
   const consentInput = useRef<HTMLInputElement>(null);
   const emailInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const panel = signupPanelRef.current;
+    const form = panel?.querySelector("form");
+
+    if (!panel || !form) return;
+
+    const syncHeight = () => {
+      const styles = getComputedStyle(panel);
+      const verticalSpace =
+        parseFloat(styles.paddingTop) +
+        parseFloat(styles.paddingBottom) +
+        parseFloat(styles.borderTopWidth) +
+        parseFloat(styles.borderBottomWidth);
+
+      panel.style.minHeight = `${Math.ceil(form.getBoundingClientRect().height + verticalSpace)}px`;
+    };
+
+    const observer = new ResizeObserver(syncHeight);
+
+    observer.observe(form);
+    window.addEventListener("resize", syncHeight);
+    syncHeight();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncHeight);
+    };
+  }, [status]);
 
   const initGoogle = () => {
     if (typeof window === "undefined") return;
@@ -1135,16 +1165,7 @@ export default function Home() {
             ))}
             <div
               className={`faq-gap-wave${faqWaveGap > 0 ? " is-visible" : ""}`}
-              style={{
-                height: faqWaveGap,
-                opacity: faqWaveGap > 0 ? 1 : 0,
-                transform:
-                  faqWaveGap > 0
-                    ? "translateY(0)"
-                    : "translateY(8px)",
-                transition:
-                  "height 450ms ease, opacity 650ms ease, transform 650ms ease",
-              }}
+              style={{ height: faqWaveGap }}
               aria-hidden="true"
             >
               <svg
@@ -1215,7 +1236,7 @@ export default function Home() {
                 Pronto, en tu break.
               </span>
             </div>
-            <div className="signup-panel">
+            <div className="signup-panel" ref={signupPanelRef}>
               {status === "already_registered" ? (
                 <div
                   className="success already-registered"
@@ -1326,21 +1347,28 @@ export default function Home() {
                           aria-hidden={signupMethod !== "google"}
                           inert={signupMethod !== "google"}
                         >
-                          <span className="signup-method-label">
-                            <Sparkles
-                              size={16}
+                          <div className="google-cloud">
+                            <svg
+                              className="google-cloud-outline"
+                              viewBox="0 0 500 200"
+                              preserveAspectRatio="none"
+                              fill="none"
                               aria-hidden="true"
-                            />{" "}
-                            Tu correo institucional
-                          </span>
-                          <div
-                            ref={googleBtnContainerRef}
-                            className="google-btn-container"
-                          />
-                          <small>
-                            Con tu cuenta institucional
-                            @utec.edu.pe.
-                          </small>
+                            >
+                              <path d="M52 39C62 19 91 16 110 27C126 8 158 7 179 23C198 10 224 12 239 25C259 8 291 8 309 25C333 10 365 15 376 35C403 24 433 34 441 56C468 58 482 79 468 99C484 119 470 140 444 142C435 166 404 177 380 165C361 186 326 187 306 170C284 189 250 190 230 173C204 187 171 184 154 167C129 182 94 176 80 156C52 160 28 144 29 123C9 109 11 83 32 69C27 56 35 44 52 39Z" />
+                            </svg>
+                            <span className="signup-method-label">
+                              Regístrate con Google
+                            </span>
+                            <div
+                              ref={googleBtnContainerRef}
+                              className="google-btn-container"
+                            />
+                            <small>
+                              Con tu cuenta institucional
+                              @utec.edu.pe.
+                            </small>
+                          </div>
                         </div>
                       )}
                     <div
@@ -1356,8 +1384,7 @@ export default function Home() {
                         className="signup-method-label"
                         htmlFor="email"
                       >
-                        <Mail size={16} aria-hidden="true" /> Tu
-                        correo institucional
+                        Tu correo institucional
                       </label>
                       <div
                         className={`email-field${emailInvalid ? " is-invalid" : ""}`}
@@ -1472,10 +1499,19 @@ export default function Home() {
                         {signupMethod === "google" ? (
                           <Mail size={18} aria-hidden="true" />
                         ) : (
-                          <Sparkles
-                            size={18}
+                          <svg
+                            className="google-g-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                             aria-hidden="true"
-                          />
+                          >
+                            <path d="M18.1 7.2a7 7 0 1 0 1 5.1H12" />
+                            <path d="M19.1 12.3v4" />
+                          </svg>
                         )}
                         {signupMethod === "google"
                           ? "Prefiero escribir mi correo"
