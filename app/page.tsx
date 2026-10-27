@@ -1314,11 +1314,15 @@ export default function Home() {
                       : "Entérate del lanzamiento"}
                   </h3>
                   <p>Un correo para avisarte. Cero vueltas.</p>
-                  {signupMethod === "google" && !editingEmail ? (
-                    <>
-                      <div className="google-sso-wrapper">
-                        <span className="google-card-label">
-                          <Sparkles size={16} aria-hidden="true" /> EN UN CLIC
+                  <div className="signup-method-stage">
+                    {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                      <div
+                        className="signup-method-surface google-sso-wrapper"
+                        aria-hidden={signupMethod !== "google"}
+                        inert={signupMethod !== "google"}
+                      >
+                        <span className="signup-method-label">
+                          <Sparkles size={16} aria-hidden="true" /> CON GOOGLE
                         </span>
                         <div
                           ref={googleBtnContainerRef}
@@ -1326,39 +1330,15 @@ export default function Home() {
                         />
                         <small>Con tu cuenta institucional @utec.edu.pe.</small>
                       </div>
-                      <button
-                        type="button"
-                        className="signup-alternative"
-                        disabled={status === "loading"}
-                        onClick={() => {
-                          setSignupMethod("email");
-                          setStatus("idle");
-                          setError("");
-                        }}
-                      >
-                        <Mail size={18} aria-hidden="true" />
-                        Prefiero escribir mi correo
-                        <ArrowRight size={17} aria-hidden="true" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
-                        <button
-                          type="button"
-                          className="signup-back"
-                          disabled={status === "loading"}
-                          onClick={() => {
-                            setSignupMethod("google");
-                            setStatus("idle");
-                            setError("");
-                            setConsentError(false);
-                          }}
-                        >
-                          <ArrowRight size={17} aria-hidden="true" />
-                          Usar Google
-                        </button>
-                      )}
+                    )}
+                    <div
+                      className="signup-method-surface email-signup"
+                      aria-hidden={signupMethod !== "email" && !editingEmail}
+                      inert={signupMethod !== "email" && !editingEmail}
+                    >
+                      <span className="signup-method-label">
+                        <Mail size={16} aria-hidden="true" /> CON MI CORREO
+                      </span>
                       <label htmlFor="email">Tu correo institucional</label>
                       <div
                         className={`email-field${emailInvalid ? " is-invalid" : ""}`}
@@ -1433,7 +1413,33 @@ export default function Home() {
                             : "Quiero estar en la lista"}
                         <ArrowUpRight size={20} />
                       </button>
-                    </>
+                    </div>
+                  </div>
+                  {!editingEmail && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                    <button
+                      type="button"
+                      className="signup-alternative"
+                      disabled={status === "loading"}
+                      onClick={() => {
+                        setSignupMethod(
+                          signupMethod === "google" ? "email" : "google"
+                        );
+                        setStatus("idle");
+                        setError("");
+                        setEmailInvalid(false);
+                        setConsentError(false);
+                      }}
+                    >
+                      {signupMethod === "google" ? (
+                        <Mail size={18} aria-hidden="true" />
+                      ) : (
+                        <Sparkles size={18} aria-hidden="true" />
+                      )}
+                      {signupMethod === "google"
+                        ? "Prefiero escribir mi correo"
+                        : "Prefiero usar Google"}
+                      <ArrowRight size={17} aria-hidden="true" />
+                    </button>
                   )}
                 </form>
               )}

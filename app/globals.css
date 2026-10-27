@@ -776,31 +776,54 @@ h2 {
   background: #eef8cb;
   color: var(--green);
 }
-.google-sso-wrapper {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+.signup-method-stage {
+  display: grid;
+  margin-top: 18px;
+}
+.signup-method-surface {
+  grid-area: 1 / 1;
+  min-width: 0;
   padding: 18px;
   border: 1px solid #efc6a2;
   border-radius: 14px;
   background: #fff4e5;
 }
-.google-card-label {
+.signup-method-surface[aria-hidden="true"] {
+  visibility: hidden;
+}
+.google-sso-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.signup-method-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  align-self: flex-start;
   color: var(--orange-ink);
   font-size: var(--type-label);
   font-weight: 700;
   letter-spacing: 0.07em;
 }
+.google-sso-wrapper .signup-method-label {
+  align-self: center;
+}
 .google-sso-wrapper small {
   color: var(--text-secondary);
   font-size: var(--type-small);
   text-align: center;
+}
+.signup-panel .signup-method-surface.email-signup > label {
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+.email-signup .consent {
+  margin-top: 12px;
+}
+.email-signup .signup-button {
+  margin-top: 14px;
 }
 .google-btn-container {
   position: relative;
@@ -857,33 +880,11 @@ h2 {
 .signup-alternative:hover svg:last-child {
   transform: translateX(3px);
 }
-.signup-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin-top: 12px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--green);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.signup-back svg {
-  transform: rotate(180deg);
-}
-.signup-back + label {
-  margin-top: 12px !important;
-}
-.signup-alternative:focus-visible,
-.signup-back:focus-visible {
+.signup-alternative:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
-.signup-alternative:disabled,
-.signup-back:disabled {
+.signup-alternative:disabled {
   cursor: wait;
 }
 @media (prefers-reduced-motion: reduce) {
