@@ -903,21 +903,28 @@ h2 {
   position: relative;
   display: flex;
   justify-content: center;
+  align-items: center;
   width: min(100%, 320px);
   height: 44px;
-  overflow: hidden;
+}
+.google-btn-container:has(iframe)::before {
+  display: none;
 }
 .google-btn-container::before {
   content: "Preparando acceso con Google…";
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 20px;
   border: 1px solid #dfd9cc;
   border-radius: 999px;
   background: white;
   color: var(--text-secondary);
   font-size: var(--type-small);
+  z-index: 2;
 }
 .google-btn-container > * {
   position: relative;
@@ -925,6 +932,9 @@ h2 {
 }
 .google-btn-container > iframe {
   max-width: 100% !important;
+  width: auto !important;
+  margin: 0 auto !important;
+  z-index: 3;
 }
 .signup-alternative {
   display: flex;
