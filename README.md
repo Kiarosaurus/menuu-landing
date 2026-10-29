@@ -1,6 +1,7 @@
 # Menúu
 
-Landing de lanzamiento para estudiantes de UTEC: comida de pequeños emprendimientos, entrega en el comedor y pago con QR al recibir. No se reciben pedidos ni se procesan pagos desde esta página.
+Aplicación SPA de Menúu para estudiantes y cocinas de UTEC: catálogo, reservas,
+cuentas y gestión de menús, desplegada con Next.js App Router y Vercel.
 
 ## Desarrollo
 
@@ -27,7 +28,9 @@ El repositorio incluye **Husky** y **lint-staged**: cada `git commit` ejecuta au
 
 ## Base de Datos y Variables de Entorno
 
-El formulario envía `POST /api/inscripciones` y registra únicamente correos institucionales `@utec.edu.pe` (normalizados en minúsculas) en la tabla `leads`, junto con la fecha y versión del consentimiento.
+La SPA usa Route Handlers bajo `/api` para autenticación, catálogo, reservas,
+reseñas y gestión de cocinas. El esquema compatible con el servidor original se
+aplica con `pnpm db:migrate`.
 
 - **Local:** Utiliza SQLite mediante `@libsql/client` (`file:local.db`). No requiere variables de entorno por defecto.
 - **Producción:** Compatible con bases serverless LibSQL / Turso.
@@ -35,7 +38,9 @@ El formulario envía `POST /api/inscripciones` y registra únicamente correos in
   - `TURSO_DATABASE_URL`
   - `TURSO_AUTH_TOKEN`
 
-La tabla se crea automáticamente al primer inicio si no existe. Incluye validación en cliente/servidor, verificación de origen y trampa honeypot contra bots.
+La base de datos se inicializa automáticamente en la primera llamada a la API.
+En local usa `file:local.db`; en Vercel configura `TURSO_DATABASE_URL` y
+`TURSO_AUTH_TOKEN`.
 
 ## Despliegue en Vercel
 

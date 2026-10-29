@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="La Esquina Criolla">
+  <rect width="96" height="96" rx="26" fill="#FFDDBE"/>
+  <path d="M22 21v54h53" fill="none" stroke="#075338" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 34h39v8H43v21h-8V34Z" fill="#FB6418"/>
+  <circle cx="64" cy="59" r="9" fill="#075338"/>
+</svg>

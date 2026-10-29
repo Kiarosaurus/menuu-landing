@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "lint:fix": "eslint . --ignore-pattern dist --ignore-pattern .next --fix",
     "format": "prettier --write .",
