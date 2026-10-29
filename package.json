@@ -1,0 +1,29 @@
+{
+  "name": "menuu-consumidores",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server/index.mjs --dev --seed-demo",
+    "build": "tsc -b && vite build",
+    "start": "node --env-file-if-exists=.env server/index.mjs",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "db:seed:demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
+    "db:import-json": "node --env-file-if-exists=.env scripts/import-json.mjs",
+    "test:smoke": "node --env-file-if-exists=.env scripts/smoke.mjs",
+    "test:kitchen": "node --env-file-if-exists=.env scripts/kitchen-smoke.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pg": "^8.23.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.5"
+  }
+}

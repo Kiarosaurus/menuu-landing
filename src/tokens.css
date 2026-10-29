@@ -1,0 +1,36 @@
+:root {
+  --color-background: #FFFAF2;
+  --color-brand: #075338;
+  --color-text: #154832;
+  --color-muted: #52664F;
+  --color-orange-soft: #FFD4A3;
+  --color-orange-ink: #B44916;
+  --color-orange: #FB6418;
+  --color-orange-display: #F55E16;
+  --color-peach: #FFDDBE;
+  --color-surface: #FFFFFF;
+  --color-border: #D7DDCB;
+  --color-error: #A83629;
+  --color-scroll-track: #EEF1E5;
+  --color-scroll-thumb: #5D8C70;
+  --color-scroll-thumb-hover: #075338;
+  --font-display: 'Fredoka', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --text-body: 1rem;
+  --text-small: .875rem;
+  --text-label: .75rem;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --radius-button: 18px;
+  --radius-card: 22px;
+  --radius-field: 16px;
+  --shadow-card: 0 12px 32px rgb(7 83 56 / 7%);
+  --content-width: 1240px;
+}

@@ -1,0 +1,270 @@
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { deliveryMoment, weekStart } from './catalog.mjs';
+import { normalizeComment, selectCustomization } from './customization.mjs';
+import { getPool, transaction } from './db.mjs';
+
+const soles = cents => cents / 100;
+const cents = solesValue => Math.round(solesValue * 100);
+const invalid = (message, status = 400) => Object.assign(new Error(message), { status });
+const tokenHash = token => createHash('sha256').update(token).digest('hex');
+const dishKey = (kitchenId, dishId) => `${kitchenId}:${dishId}`;
+
+async function loadDishes(client) {
+  const dishesResult = await client.query('SELECT kitchen_id AS "kitchenId", id, name, description, price_cents AS "priceCents", image_url AS "imageUrl", image_alt AS "imageAlt", active FROM dishes');
+  const groupsResult = await client.query('SELECT kitchen_id AS "kitchenId", dish_id AS "dishId", id, title, selection_type AS "selectionType", required, max_selections AS "maxSelections" FROM option_groups ORDER BY sort_order, id');
+  const choicesResult = await client.query('SELECT kitchen_id AS "kitchenId", dish_id AS "dishId", group_id AS "groupId", id, label, price_cents AS "priceCents" FROM option_choices ORDER BY sort_order, id');
+  const dishes = new Map(dishesResult.rows.map(row => [dishKey(row.kitchenId, row.id), { ...row, priceSoles: soles(row.priceCents), customization: [] }]));
+  const groups = new Map();
+  for (const row of groupsResult.rows) {
+    const dish = dishes.get(dishKey(row.kitchenId, row.dishId));
+    if (!dish) continue;
+    const group = { id: row.id, title: row.title, selectionType: row.selectionType, required: row.required, maxSelections: row.maxSelections, choices: [] };
+    dish.customization.push(group);
+    groups.set(`${row.kitchenId}:${row.dishId}:${row.id}`, group);
+  }
+  for (const row of choicesResult.rows) groups.get(`${row.kitchenId}:${row.dishId}:${row.groupId}`)?.choices.push({ id: row.id, label: row.label, priceSoles: soles(row.priceCents) });
+  return dishes;
+}
+
+async function loadOfferOptions(client, ids) {
+  if (!ids.length) return new Map();
+  const [groupsResult, choicesResult] = await Promise.all([
+    client.query('SELECT offer_id AS "offerId",id,title,selection_type AS "selectionType",required,max_selections AS "maxSelections" FROM offer_option_groups WHERE offer_id=ANY($1::text[]) ORDER BY sort_order,id', [ids]),
+    client.query('SELECT offer_id AS "offerId",group_id AS "groupId",id,label,price_cents AS "priceCents" FROM offer_option_choices WHERE offer_id=ANY($1::text[]) ORDER BY sort_order,id', [ids]),
+  ]);
+  const offers = new Map(), groups = new Map();
+  for (const row of groupsResult.rows) {
+    if (!offers.has(row.offerId)) offers.set(row.offerId, []);
+    const group = { id: row.id, title: row.title, selectionType: row.selectionType, required: row.required, maxSelections: row.maxSelections, choices: [] };
+    offers.get(row.offerId).push(group); groups.set(`${row.offerId}:${row.id}`, group);
+  }
+  for (const row of choicesResult.rows) groups.get(`${row.offerId}:${row.groupId}`)?.choices.push({ id: row.id, label: row.label, priceSoles: soles(row.priceCents) });
+  return offers;
+}
+
+export async function getCatalog(now = new Date()) {
+  const start = weekStart(now);
+  const [kitchensResult, offersResult, dishes, salesResult, weeklyDishSalesResult, ratingsResult] = await Promise.all([
+    getPool().query('SELECT id, name, description, image_url AS "imageUrl", logo_url AS "logoUrl", test_account AS "testAccount" FROM kitchens ORDER BY name'),
+    getPool().query(`SELECT id, kitchen_id AS "kitchenId", dish_id AS "dishId", to_char(offer_date, 'YYYY-MM-DD') AS date,
+      to_char(delivery_time, 'HH24:MI') AS "deliveryTime", to_char(pickup_until, 'HH24:MI') AS "pickupUntil",
+      booking_deadline_at AS "bookingDeadline", booking_deadline_at > clock_timestamp() AS "withinBookingWindow",
+      capacity, reserved_count AS "reservedCount", sort_order AS "sortOrder",description_override AS "descriptionOverride",price_override_cents AS "priceOverrideCents",customization_override AS "customizationOverride"
+      FROM offers WHERE offer_date >= $1::date AND offer_date < $1::date + 14 ORDER BY offer_date, sort_order, id`, [start]),
+    loadDishes(getPool()),
+    getPool().query(`SELECT f.kitchen_id AS "kitchenId", f.dish_id AS "dishId", sum(i.quantity)::integer AS units
+      FROM order_items i JOIN orders o ON o.id=i.order_id JOIN offers f ON f.id=i.offer_id
+      WHERE o.status='reservado' AND o.fulfillment_status='delivered'
+      GROUP BY f.kitchen_id,f.dish_id ORDER BY units DESC, f.kitchen_id,f.dish_id`),
+    getPool().query(`SELECT CASE WHEN f.offer_date < $1::date + 7 THEN 0 ELSE 1 END AS week,
+      f.kitchen_id AS "kitchenId", f.dish_id AS "dishId", sum(i.quantity)::integer AS units,
+      count(DISTINCT o.id)::integer AS "orderCount"
+      FROM order_items i JOIN orders o ON o.id=i.order_id JOIN offers f ON f.id=i.offer_id
+      WHERE f.offer_date >= $1::date AND f.offer_date < $1::date + 14
+        AND o.status='reservado' AND o.fulfillment_status <> 'no_show'
+      GROUP BY week, f.kitchen_id, f.dish_id
+      ORDER BY week, units DESC, "orderCount" DESC, f.kitchen_id, f.dish_id`, [start]),
+    getPool().query(`SELECT o.kitchen_id AS "kitchenId", round(avg(r.kitchen_rating)::numeric,1)::float8 AS rating,
+      count(*)::integer AS "ratingCount"
+      FROM order_reviews r JOIN orders o ON o.id=r.order_id
+      WHERE o.status='reservado' AND o.fulfillment_status='delivered' GROUP BY o.kitchen_id`),
+  ]);
+  const kitchenNames = new Map(kitchensResult.rows.map(kitchen => [kitchen.id, kitchen.name]));
+  const offerOptions = await loadOfferOptions(getPool(), offersResult.rows.filter(row => row.customizationOverride).map(row => row.id));
+  const kitchenRatings = new Map(ratingsResult.rows.map(row => [row.kitchenId, row]));
+  const nextStart = new Date(`${start}T12:00:00Z`);
+  nextStart.setUTCDate(nextStart.getUTCDate() + 7);
+  const next = nextStart.toISOString().slice(0, 10);
+  return {
+    kitchens: kitchensResult.rows.map(kitchen => ({ ...kitchen, rating: kitchenRatings.get(kitchen.id)?.rating ?? null, ratingCount: kitchenRatings.get(kitchen.id)?.ratingCount ?? 0 })),
+    sales: salesResult.rows,
+    weeklyDishSales: weeklyDishSalesResult.rows,
+    weeks: [start, next],
+    offerings: offersResult.rows.flatMap(row => {
+      const dish = dishes.get(dishKey(row.kitchenId, row.dishId));
+      if (!dish) return [];
+      const remaining = row.capacity - row.reservedCount;
+      const { withinBookingWindow, descriptionOverride, priceOverrideCents, customizationOverride, ...offer } = row;
+      return [{ ...dish, ...offer, description: descriptionOverride ?? dish.description, priceCents: priceOverrideCents ?? dish.priceCents, priceSoles: soles(priceOverrideCents ?? dish.priceCents), customization: customizationOverride ? offerOptions.get(row.id) || [] : dish.customization, kitchenName: kitchenNames.get(row.kitchenId) || '', remaining, bookable: remaining > 0 && withinBookingWindow, week: row.date >= next ? 1 : 0 }];
+    }),
+  };
+}
+
+export async function findUserByEmail(email) {
+  const result = await getPool().query(`SELECT u.id,u.name,u.email,u.role,u.kitchen_id AS "kitchenId",u.student_code AS "studentCode",u.career,to_char(u.birth_date,'YYYY-MM-DD') AS "birthDate",u.password_hash AS "passwordHash",
+    NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id=u.id AND o.status='reservado' AND o.fulfillment_status='no_show') AS "bookingAllowed"
+    FROM users u WHERE u.email=$1`, [email]);
+  return result.rows[0] || null;
+}
+
+export async function insertUser(user) {
+  const result = await getPool().query(`INSERT INTO users (id,name,email,password_hash,role,student_code,career,birth_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date)
+    RETURNING id,name,email,role,kitchen_id AS "kitchenId",student_code AS "studentCode",career,
+      to_char(birth_date,'YYYY-MM-DD') AS "birthDate",true AS "bookingAllowed"`,
+    [user.id, user.name, user.email, user.passwordHash, user.role, user.studentCode, user.career, user.birthDate || null]);
+  return result.rows[0];
+}
+
+export async function userFromSession(token) {
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
+  const result = await getPool().query(`SELECT u.id,u.name,u.email,u.role,u.kitchen_id AS "kitchenId",u.student_code AS "studentCode",u.career,to_char(u.birth_date,'YYYY-MM-DD') AS "birthDate",
+    NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id=u.id AND o.status='reservado' AND o.fulfillment_status='no_show') AS "bookingAllowed"
+    FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()`, [tokenHash(token)]);
+  return result.rows[0] || null;
+}
+
+export async function updateConsumerProfile(userId, { name, studentCode, career, birthDate }) {
+  const result = await getPool().query(`UPDATE users SET name=$2,student_code=$3,career=$4,birth_date=$5::date
+    WHERE id=$1 AND role='consumer' RETURNING id`, [userId, name, studentCode, career, birthDate]);
+  return result.rowCount > 0;
+}
+
+export async function insertSession(token, userId) {
+  await getPool().query("INSERT INTO sessions (token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')", [tokenHash(token), userId]);
+}
+
+export async function removeSession(token) {
+  if (token && /^[a-f0-9]{64}$/.test(token)) await getPool().query('DELETE FROM sessions WHERE token_hash=$1', [tokenHash(token)]);
+}
+
+export async function getOrders(userId) {
+  const ordersResult = await getPool().query(`SELECT o.id,o.code,o.kitchen_id AS "kitchenId",o.kitchen_name AS "kitchenName",
+    to_char(o.offer_date,'YYYY-MM-DD') AS date,to_char(o.delivery_time,'HH24:MI') AS "deliveryTime",
+    to_char(o.pickup_until,'HH24:MI') AS "pickupUntil",o.pickup_point AS "pickupPoint",o.status,o.payment,
+    o.fulfillment_status AS "fulfillmentStatus",o.review_enabled AS "reviewEnabled",r.kitchen_rating AS "kitchenRating",
+    o.total_cents AS "totalCents",o.created_at AS "createdAt" FROM orders o
+    LEFT JOIN order_reviews r ON r.order_id=o.id WHERE o.user_id=$1 ORDER BY o.created_at DESC`, [userId]);
+  if (!ordersResult.rows.length) return [];
+  const ids = ordersResult.rows.map(row => row.id);
+  const [itemsResult, choicesResult] = await Promise.all([
+    getPool().query(`SELECT i.id,i.order_id AS "orderId",i.offer_id AS "offeringId",i.dish_name AS name,i.image_url AS "imageUrl",
+      i.quantity,i.comment,i.unit_price_cents AS "unitPriceCents",i.total_cents AS "totalCents",r.food_rating AS "foodRating"
+      FROM order_items i LEFT JOIN order_item_reviews r ON r.order_item_id=i.id
+      WHERE i.order_id=ANY($1::text[]) ORDER BY i.sort_order,i.id`, [ids]),
+    getPool().query(`SELECT c.order_item_id AS "itemId",c.group_id AS "groupId",c.group_title AS title,
+      c.choice_id AS "choiceId",c.choice_label AS label,c.price_cents AS "priceCents"
+      FROM order_item_choices c JOIN order_items i ON i.id=c.order_item_id
+      WHERE i.order_id=ANY($1::text[]) ORDER BY c.sort_order,c.choice_id`, [ids]),
+  ]);
+  const choices = new Map();
+  for (const row of choicesResult.rows) {
+    if (!choices.has(row.itemId)) choices.set(row.itemId, []);
+    choices.get(row.itemId).push({ groupId: row.groupId, title: row.title, choiceId: row.choiceId, label: row.label, priceSoles: soles(row.priceCents) });
+  }
+  const items = new Map();
+  for (const row of itemsResult.rows) {
+    if (!items.has(row.orderId)) items.set(row.orderId, []);
+    items.get(row.orderId).push({ id: row.id, offeringId: row.offeringId, name: row.name, imageUrl: row.imageUrl, quantity: row.quantity, comment: row.comment, choices: choices.get(row.id) || [], unitPriceSoles: soles(row.unitPriceCents), totalSoles: soles(row.totalCents), foodRating: row.foodRating });
+  }
+  return ordersResult.rows.map(row => ({ id: row.id, code: row.code, kitchenName: row.kitchenName, date: row.date, deliveryTime: row.deliveryTime, pickupUntil: row.pickupUntil, pickupPoint: row.pickupPoint, status: row.status, payment: row.payment, fulfillmentStatus: row.fulfillmentStatus, reviewEnabled: row.reviewEnabled, kitchenRating: row.kitchenRating, totalSoles: soles(row.totalCents), createdAt: row.createdAt.toISOString(), items: items.get(row.id) || [] }));
+}
+
+export async function submitReview(userId, orderId, payload, now = new Date()) {
+  const kitchenRating = Number(payload?.kitchenRating);
+  const foodRatings = payload?.foodRatings;
+  if (!Number.isInteger(kitchenRating) || kitchenRating < 1 || kitchenRating > 5) throw invalid('Califica la cocina de 1 a 5 estrellas.');
+  if (!Array.isArray(foodRatings) || foodRatings.length < 1 || foodRatings.some(value => !value || typeof value.orderItemId !== 'string' || !Number.isInteger(value.rating) || value.rating < 1 || value.rating > 5)) throw invalid('Califica cada plato de 1 a 5 estrellas.');
+  return transaction(async client => {
+    const orderResult = await client.query(`SELECT id,status,fulfillment_status AS "fulfillmentStatus",review_enabled AS "reviewEnabled",
+      to_char(offer_date,'YYYY-MM-DD') AS date,to_char(delivery_time,'HH24:MI') AS "deliveryTime"
+      FROM orders WHERE id=$1 AND user_id=$2 FOR UPDATE`, [orderId, userId]);
+    const order = orderResult.rows[0];
+    if (!order) throw invalid('Pedido no encontrado.', 404);
+    if (order.status !== 'reservado' || order.fulfillmentStatus !== 'delivered' || !order.reviewEnabled || deliveryMoment(order.date, order.deliveryTime) > now) throw invalid('Este pedido aún no está habilitado para reseñas.', 403);
+    if ((await client.query('SELECT 1 FROM order_reviews WHERE order_id=$1', [orderId])).rowCount) throw invalid('Ya calificaste este pedido.', 409);
+    const itemsResult = await client.query('SELECT id::text AS id FROM order_items WHERE order_id=$1 ORDER BY id', [orderId]);
+    const actual = itemsResult.rows.map(row => row.id).sort();
+    const submitted = foodRatings.map(row => row.orderItemId).sort();
+    if (actual.length !== submitted.length || actual.some((id, index) => id !== submitted[index])) throw invalid('Califica todos los platos del pedido una sola vez.');
+    await client.query('INSERT INTO order_reviews (order_id,kitchen_rating) VALUES ($1,$2)', [orderId, kitchenRating]);
+    for (const value of foodRatings) await client.query('INSERT INTO order_item_reviews (order_item_id,order_id,food_rating) VALUES ($1,$2,$3)', [value.orderItemId, orderId, value.rating]);
+    return { ok: true };
+  });
+}
+
+export async function createBooking(userId, payload, requestKey = null) {
+  if (!Array.isArray(payload) || payload.length < 1 || payload.length > 20) throw invalid('Agrega al menos un plato al carrito.');
+  if (payload.some(item => !item || typeof item !== 'object' || Array.isArray(item) || typeof item.offeringId !== 'string' || !item.offeringId)) throw invalid('Hay un plato inválido en el carrito.');
+  if (requestKey !== null && (typeof requestKey !== 'string' || !/^[a-zA-Z0-9_-]{8,128}$/.test(requestKey))) throw invalid('Identificador de solicitud inválido.');
+  return transaction(async client => {
+    if (requestKey) {
+      const payloadHash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+      const claimed = await client.query(`INSERT INTO booking_requests (user_id,request_key,payload_hash)
+        VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING request_key`, [userId, requestKey, payloadHash]);
+      if (!claimed.rowCount) {
+        const existing = await client.query('SELECT payload_hash,response FROM booking_requests WHERE user_id=$1 AND request_key=$2 FOR UPDATE', [userId, requestKey]);
+        if (existing.rows[0]?.payload_hash !== payloadHash) throw invalid('La solicitud ya se usó con otro carrito.', 409);
+        if (!existing.rows[0]?.response) throw invalid('La reserva sigue en proceso. Intenta nuevamente.', 409);
+        return existing.rows[0].response;
+      }
+    }
+    if ((await client.query("SELECT 1 FROM orders WHERE user_id=$1 AND status='reservado' AND fulfillment_status='no_show' LIMIT 1", [userId])).rowCount) {
+      throw invalid('No puedes confirmar otra reserva mientras tengas un pedido marcado como no recogido.', 403);
+    }
+    const ids = [...new Set(payload.map(item => item.offeringId))].sort();
+    const offersResult = await client.query(`SELECT id,kitchen_id AS "kitchenId",dish_id AS "dishId",
+      to_char(offer_date,'YYYY-MM-DD') AS date,to_char(delivery_time,'HH24:MI') AS "deliveryTime",
+      to_char(pickup_until,'HH24:MI') AS "pickupUntil",booking_deadline_at AS "bookingDeadline",
+      booking_deadline_at > clock_timestamp() AS "withinBookingWindow",capacity,reserved_count AS "reservedCount",price_override_cents AS "priceOverrideCents",customization_override AS "customizationOverride"
+      FROM offers WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE`, [ids]);
+    const offers = new Map(offersResult.rows.map(row => [row.id, row]));
+    const offerOptions = await loadOfferOptions(client, offersResult.rows.filter(row => row.customizationOverride).map(row => row.id));
+    const dishes = await loadDishes(client);
+    const kitchensResult = await client.query('SELECT id,name FROM kitchens');
+    const kitchenNames = new Map(kitchensResult.rows.map(row => [row.id, row.name]));
+    const requested = new Map();
+    const items = payload.map(item => {
+      const offer = offers.get(item.offeringId);
+      if (!offer || !offer.withinBookingWindow) throw invalid('El plazo de reserva de uno de los platos ya terminó.', 409);
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) throw invalid('La cantidad debe estar entre 1 y 10.');
+      requested.set(offer.id, (requested.get(offer.id) || 0) + quantity);
+      if (offer.reservedCount + requested.get(offer.id) > offer.capacity) throw invalid(`Ya no quedan suficientes porciones de ${dishes.get(dishKey(offer.kitchenId, offer.dishId))?.name || 'este plato'}.`, 409);
+      const dish = dishes.get(dishKey(offer.kitchenId, offer.dishId));
+      if (!dish) throw invalid('Uno de los menús ya no está disponible.', 409);
+      const selections = selectCustomization(offer.customizationOverride ? offerOptions.get(offer.id) || [] : dish.customization, item.choices);
+      const comment = normalizeComment(item.comment);
+      const unitPriceCents = (offer.priceOverrideCents ?? dish.priceCents) + selections.reduce((sum, choice) => sum + cents(choice.priceSoles), 0);
+      return { offeringId: offer.id, name: dish.name, imageUrl: dish.imageUrl, quantity, comment, choices: selections,
+        unitPriceCents, totalCents: unitPriceCents * quantity, kitchenId: offer.kitchenId, kitchenName: kitchenNames.get(offer.kitchenId) || '',
+        date: offer.date, deliveryTime: offer.deliveryTime, pickupUntil: offer.pickupUntil };
+    });
+    for (const id of ids) {
+      const reserved = await client.query(`UPDATE offers SET reserved_count=reserved_count+$2,sold_out_at=CASE WHEN reserved_count+$2=capacity THEN clock_timestamp() ELSE sold_out_at END WHERE id=$1
+        AND reserved_count+$2<=capacity AND booking_deadline_at>clock_timestamp() RETURNING id`, [id, requested.get(id)]);
+      if (!reserved.rowCount) throw invalid('El plazo de reserva terminó o se agotaron las porciones de uno de los platos.', 409);
+    }
+    const groups = new Map();
+    for (const item of items) {
+      const key = `${item.kitchenId}:${item.date}:${item.deliveryTime}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    }
+    const created = [];
+    for (const group of groups.values()) {
+      const order = { id: randomUUID(), code: `MU-${randomBytes(4).toString('hex').toUpperCase()}`, userId,
+        kitchenId: group[0].kitchenId, kitchenName: group[0].kitchenName, date: group[0].date, deliveryTime: group[0].deliveryTime,
+        pickupUntil: group[0].pickupUntil, pickupPoint: 'Comedor UTEC', status: 'reservado', payment: 'QR al recibir',
+        totalCents: group.reduce((sum, item) => sum + item.totalCents, 0), createdAt: new Date().toISOString() };
+      await client.query(`INSERT INTO orders (id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents,created_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [order.id, order.code, userId, order.kitchenId, order.kitchenName, order.date, order.deliveryTime, order.pickupUntil, order.pickupPoint, order.status, order.payment, order.totalCents, order.createdAt]);
+      const visibleItems = [];
+      for (const [index, item] of group.entries()) {
+        const saved = await client.query(`INSERT INTO order_items (order_id,offer_id,dish_name,image_url,quantity,comment,unit_price_cents,total_cents,sort_order)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [order.id, item.offeringId, item.name, item.imageUrl, item.quantity, item.comment, item.unitPriceCents, item.totalCents, index]);
+        for (const [choiceIndex, choice] of item.choices.entries()) {
+          await client.query(`INSERT INTO order_item_choices (order_item_id,group_id,group_title,choice_id,choice_label,price_cents,sort_order)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)`, [saved.rows[0].id, choice.groupId, choice.title, choice.choiceId, choice.label, cents(choice.priceSoles), choiceIndex]);
+        }
+        visibleItems.push({ offeringId: item.offeringId, name: item.name, imageUrl: item.imageUrl, quantity: item.quantity, comment: item.comment,
+          choices: item.choices, unitPriceSoles: soles(item.unitPriceCents), totalSoles: soles(item.totalCents) });
+      }
+      created.push({ id: order.id, code: order.code, kitchenName: order.kitchenName, date: order.date, deliveryTime: order.deliveryTime,
+        pickupUntil: order.pickupUntil, pickupPoint: order.pickupPoint, status: order.status, payment: order.payment,
+        totalSoles: soles(order.totalCents), createdAt: order.createdAt, items: visibleItems });
+    }
+    if (requestKey) await client.query('UPDATE booking_requests SET response=$3::jsonb WHERE user_id=$1 AND request_key=$2', [userId, requestKey, JSON.stringify(created)]);
+    return created;
+  });
+}
