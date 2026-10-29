@@ -3092,6 +3092,54 @@ html::-webkit-scrollbar-thumb:hover {
   margin-top: 2px;
   white-space: nowrap;
 }
+.sticker.price-sticker {
+  top: 40px;
+  right: -22px;
+  width: 164px;
+  height: 164px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.price-sticker .price-sticker-shape {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  fill: var(--orange-soft);
+  stroke: none;
+  filter: drop-shadow(0 6px 9px rgb(7 83 56 / 16%));
+}
+.price-sticker-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: var(--green);
+  transform: translateY(0);
+}
+.price-sticker-content > span {
+  font: 600 15px/1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.price-sticker-content strong {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  font: 600 48px/1 var(--font-display);
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+.price-sticker-content strong span {
+  font-size: 37px;
+}
 @media (max-width: 48rem) {
   .sticker-content {
     transform: translate(0, 0);
@@ -3099,6 +3147,31 @@ html::-webkit-scrollbar-thumb:hover {
   .sticker-content > span {
     max-width: 68px;
     white-space: normal;
+  }
+}
+@media (max-width: 48rem) {
+  .sticker.price-sticker {
+    top: 78px;
+    right: -11px;
+    width: 142px;
+    height: 142px;
+  }
+  .price-sticker-content > span {
+    font-size: 14px;
+  }
+  .price-sticker-content strong {
+    font-size: 43px;
+  }
+  .price-sticker-content strong span {
+    font-size: 34px;
+  }
+}
+@media (max-width: 700px) {
+  .ticker span {
+    align-items: center;
+  }
+  .ticker span svg {
+    margin-top: 0;
   }
 }
 @media (max-width: 48rem) {

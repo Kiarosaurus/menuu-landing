@@ -916,36 +916,19 @@ export default function Home() {
                 TALLARINES VERDES · IMAGEN REFERENCIAL
               </span>
             </div>
-            <span className="sticker">
-              <span className="sticker-content">
-                <span>menos vueltas</span>
-                <strong>más ñam.</strong>
-                <svg
-                  className="tasty-mouth"
-                  viewBox="0 0 44 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3 4.5C10 17.5 34 17.5 41 4.5"
-                    stroke="currentColor"
-                    strokeWidth="2.3"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M18 13.5c2.4.6 5.6.6 8 0v3.2c0 2.7-1.8 4.6-4 4.6s-4-1.9-4-4.6z"
-                    fill="#FB6418"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M22 17.3v2.2"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                  />
-                </svg>
+            <span className="sticker price-sticker">
+              <svg
+                className="price-sticker-shape"
+                viewBox="0 0 120 120"
+                aria-hidden="true"
+              >
+                <path d="M 60 2.4 L 65.5 4.5 L 70.1 9.2 L 73.9 14.3 L 77.5 17.7 L 82 18.8 L 87.7 18.6 L 93.6 19 L 98.4 21.6 L 100.8 26.5 L 101 32.6 L 100.5 38.3 L 101.5 42.8 L 104.8 46.4 L 109.9 50.1 L 114.6 54.6 L 116.9 60 L 115.6 65.5 L 111.6 70.3 L 107.1 74.3 L 104.2 78.3 L 103.3 83.2 L 103.6 89.1 L 102.9 95.2 L 100 100 L 94.6 102.1 L 88 102 L 81.9 101 L 77.1 101.2 L 73.3 103.8 L 69.6 108.3 L 65.2 112.5 L 60 114.4 L 54.8 113 L 50.2 109.2 L 46.3 105.1 L 42.3 102.7 L 37.3 102.5 L 31 103.4 L 24.4 103.3 L 19.2 100.8 L 16.5 95.7 L 16.2 89.3 L 16.8 83.1 L 16.5 78 L 13.9 74 L 9.8 70 L 6.1 65.3 L 4.9 60 L 7 54.8 L 11.5 50.4 L 16.3 46.7 L 19.2 43.1 L 19.6 38.4 L 18.7 32.4 L 18.6 26 L 20.8 20.8 L 25.4 17.8 L 31.4 17.1 L 37.1 17.2 L 41.9 16.2 L 45.7 13 L 49.7 8.2 L 54.5 4 Z" />
+              </svg>
+              <span className="price-sticker-content">
+                <span>DESDE</span>
+                <strong>
+                  <span>S/.</span> 11
+                </strong>
               </span>
             </span>
             <div className="floating location">
@@ -984,7 +967,7 @@ export default function Home() {
             </span>
             <i>✳</i>
             <span>
-              <QrCode size={20} /> paga con QR al recibir
+              <QrCode size={20} /> Paga con QR al recibir
             </span>
             <i>✳</i>
             <span>
@@ -1018,7 +1001,7 @@ export default function Home() {
                 <path d="m17 12-10 10" />
                 <circle cx="16" cy="20" r="1" />
               </svg>{" "}
-              pensado para la UTEC
+              Pensado para la UTEC
             </span>
           </div>
         </div>
