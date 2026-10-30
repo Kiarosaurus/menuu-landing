@@ -75,6 +75,15 @@ type KitchenReservation = {
   createdAt: string;
   manualAdded: boolean;
 };
+type ReservationState = "pending" | "confirmed" | "delivered" | "cancelled";
+const reservationState = (item: KitchenReservation): ReservationState =>
+  item.status !== "reservado" || item.fulfillmentStatus === "no_show"
+    ? "cancelled"
+    : item.fulfillmentStatus === "delivered"
+      ? "delivered"
+      : item.pickupConfirmed
+        ? "confirmed"
+        : "pending";
 type StatOffer = {
   id: string;
   dishId: string;
@@ -765,14 +774,7 @@ function KitchenReservationPanel({
       item.status === "reservado" && item.fulfillmentStatus !== "no_show",
   );
   const filteredReservations = reservations.filter((item) => {
-    const status =
-      item.status !== "reservado" || item.fulfillmentStatus === "no_show"
-        ? "cancelled"
-        : item.fulfillmentStatus === "delivered"
-          ? "delivered"
-          : item.pickupConfirmed
-            ? "confirmed"
-            : "pending";
+    const status = reservationState(item);
     return (
       (statusFilter === "all" || statusFilter === status) &&
       (paymentFilter === "all" ||
@@ -852,16 +854,20 @@ function KitchenReservationPanel({
         <div className="km-reservation-list">
           {filteredReservations.length ? (
             filteredReservations.map((item) => {
+              const status = reservationState(item);
               const state =
-                item.fulfillmentStatus === "delivered"
+                status === "delivered"
                   ? "Entregado"
-                  : item.fulfillmentStatus === "no_show"
+                  : status === "cancelled"
                     ? "Cancelado · no vino"
-                    : item.pickupConfirmed
+                    : status === "confirmed"
                       ? "Sin entregar · confirmó asistencia"
                       : "Pendiente de confirmar";
               return (
-                <article className="km-reservation" key={item.orderId}>
+                <article
+                  className={`km-reservation km-reservation-${status}`}
+                  key={item.orderId}
+                >
                   <div className="km-reservation-person">
                     <strong>{item.studentName}</strong>
                     <span>{item.studentEmail}</span>

@@ -1028,6 +1028,9 @@
   white-space: nowrap;
 }
 .km-reservation {
+  --reservation-accent: var(--color-orange-ink);
+  --reservation-bg: var(--color-status-pending-bg);
+  --reservation-ink: var(--color-orange-ink);
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.5fr) minmax(
       160px,
@@ -1035,8 +1038,26 @@
     );
   gap: 18px;
   align-items: center;
-  padding: 16px 0;
-  border-top: 1px solid var(--color-border);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--reservation-accent);
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--reservation-bg), #fff 76%);
+}
+.km-reservation-confirmed {
+  --reservation-accent: var(--color-orange-display);
+  --reservation-bg: var(--color-status-confirmed-bg);
+  --reservation-ink: var(--color-brand);
+}
+.km-reservation-delivered {
+  --reservation-accent: var(--color-brand);
+  --reservation-bg: var(--color-status-delivered-bg);
+  --reservation-ink: var(--color-brand);
+}
+.km-reservation-cancelled {
+  --reservation-accent: var(--color-error);
+  --reservation-bg: var(--color-status-cancelled-bg);
+  --reservation-ink: var(--color-error);
 }
 .km-reservation-person,
 .km-reservation-person span,
@@ -1056,9 +1077,16 @@
   color: var(--color-muted);
 }
 .km-reservation-state {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--reservation-bg);
   font-weight: 600;
-  color: var(--color-brand);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--reservation-ink);
   margin-bottom: 8px;
 }
 .km-reservation-actions {
