@@ -1134,6 +1134,8 @@
   gap: 8px;
   max-height: 280px;
   overflow-y: auto;
+  scrollbar-color: auto;
+  scrollbar-width: auto;
 }
 .km-candidate-list > div {
   display: flex;
