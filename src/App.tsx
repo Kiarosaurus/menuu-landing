@@ -1253,9 +1253,49 @@ type FeaturedSlide = {
   kitchen: Kitchen;
   offer: Offering;
   titleLines: [string, string];
-  subtitle: string | null;
   descriptionLines: [string, string];
 };
+
+function featuredCopy(
+  offer: Offering,
+  index: number,
+): Pick<FeaturedSlide, "titleLines" | "descriptionLines"> {
+  const dish = offer.name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+  if (dish.includes("arroz con pollo"))
+    return {
+      titleLines: ["Un clásico para", "tu break."],
+      descriptionLines: [
+        "Arroz con pollo para tu almuerzo.",
+        "Elige tu día y reserva tu porción.",
+      ],
+    };
+  if (dish.includes("pure") && dish.includes("milanesa"))
+    return {
+      titleLines: ["Una pausa rica,", "sin vueltas."],
+      descriptionLines: [
+        "Puré suave y milanesa dorada.",
+        "Haz una pausa rica entre clases.",
+      ],
+    };
+  return index === 0
+    ? {
+        titleLines: ["Tu break pide", "algo rico."],
+        descriptionLines: [
+          "Un antojo para cortar la rutina.",
+          "Mira el menú y elige tu día.",
+        ],
+      }
+    : {
+        titleLines: ["Almorzar rico", "sí se puede."],
+        descriptionLines: [
+          "Dale sabor a tu pausa en la U.",
+          "Conoce la cocina y reserva.",
+        ],
+      };
+}
 
 function FeaturedCarousel({
   slides,
@@ -1323,11 +1363,6 @@ function FeaturedCarousel({
               </span>
             ))}
           </h1>
-          <h3>
-            {slide.subtitle && (
-              <span className="featured-text-line">{slide.subtitle}</span>
-            )}
-          </h3>
           <p>
             {slide.descriptionLines.map((line, lineIndex) => (
               <span className="featured-text-line" key={lineIndex}>
@@ -1359,6 +1394,7 @@ function FeaturedCarousel({
                   }
                 />
               </div>
+              <span className="featured-dish-label">{item.offer.name}</span>
             </div>
           ))}
         </div>
@@ -1545,22 +1581,14 @@ export default function App() {
   const featured: FeaturedSlide[] = rankedDishes
     .filter((offer) => Boolean(offer.imageUrl))
     .slice(0, 2)
-    .flatMap((offer) => {
-      const nameOverflow = offer.name.length > 7;
+    .flatMap((offer, index) => {
       const kitchen = kitchens.find((value) => value.id === offer.kitchenId);
       if (!kitchen) return [];
       return [
         {
           kitchen,
           offer,
-          titleLines: nameOverflow
-            ? ["¿Te apetece comer", `sabroso esta semana?`]
-            : ["¿Te apetece", `${offer.name} esta semana?`],
-          subtitle: nameOverflow ? `Plato: ${offer.name}` : null,
-          descriptionLines: [
-            offer.description || `Un plato de ${kitchen.name}.`,
-            "Mira el menú y elige tu día.",
-          ],
+          ...featuredCopy(offer, index),
         },
       ];
     });

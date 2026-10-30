@@ -3200,7 +3200,6 @@ p {
 }
 .featured-slide-green .welcome-copy h1,
 .featured-slide-green .welcome-copy h1 span,
-.featured-slide-green .welcome-copy h3 span,
 .featured-slide-green .welcome-copy p {
   color: var(--color-background);
 }
@@ -3220,10 +3219,6 @@ p {
 }
 .featured-slide .welcome-copy h1 {
   font-size: clamp(37px, 3.65vw, 49px);
-  max-width: none;
-}
-.featured-slide .welcome-copy h3 {
-  padding-bottom: 20px;
   max-width: none;
 }
 .featured-text-line {
@@ -3252,6 +3247,25 @@ p {
 }
 .featured-slide .welcome-photo .featured-food-photo {
   object-position: center;
+}
+.featured-slide .welcome-photo .featured-dish-label {
+  position: absolute;
+  z-index: 2;
+  right: auto;
+  left: 16px;
+  bottom: 16px;
+  display: inline-block;
+  max-width: calc(100% - 32px);
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: rgb(255 250 242 / 96%);
+  color: var(--color-brand);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 4px 14px rgb(7 83 56 / 14%);
 }
 .featured-logo-badge {
   position: absolute;
