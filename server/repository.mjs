@@ -275,7 +275,7 @@ export async function getOrders(userId) {
   const ordersResult = await getDb().query(
     `SELECT o.id,o.code,o.kitchen_id AS "kitchenId",o.kitchen_name AS "kitchenName",
     o.offer_date AS date,o.delivery_time AS "deliveryTime",
-    o.pickup_until AS "pickupUntil",o.pickup_point AS "pickupPoint",o.status,o.payment,
+    o.pickup_until AS "pickupUntil",o.pickup_point AS "pickupPoint",o.status,COALESCE(o.payment_recorded,o.payment) AS payment,
     o.fulfillment_status AS "fulfillmentStatus",o.review_enabled AS "reviewEnabled",r.kitchen_rating AS "kitchenRating",
     o.total_cents AS "totalCents",o.created_at AS "createdAt" FROM orders o
     LEFT JOIN order_reviews r ON r.order_id=o.id WHERE o.user_id=$1 ORDER BY o.created_at DESC`,
@@ -598,7 +598,7 @@ export async function createBooking(userId, payload, requestKey = null) {
         date: group[0].date,
         deliveryTime: group[0].deliveryTime,
         pickupUntil: group[0].pickupUntil,
-        pickupPoint: "Comedor UTEC",
+        pickupPoint: "Entrada del Comedor UTEC en piso 2",
         status: "reservado",
         payment: "QR al recibir",
         totalCents: group.reduce((sum, item) => sum + item.totalCents, 0),

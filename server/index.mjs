@@ -20,12 +20,15 @@ import {
 } from "./repository.mjs";
 import { hashPassword, publicUser, verifyPassword } from "./store.mjs";
 import {
+  addKitchenReservation,
   kitchenData,
   kitchenImage,
+  kitchenStudentCandidates,
   saveDish,
   saveKitchenImage,
   saveOffer,
   updateKitchen,
+  updateKitchenReservation,
 } from "./kitchen.mjs";
 import { migrate } from "../scripts/migrate.mjs";
 
@@ -209,6 +212,16 @@ async function handleApi(req, res, url) {
 
     if (req.method === "GET" && url.pathname === "/api/kitchen/data")
       return json(res, 200, await kitchenData(user.kitchenId));
+    const candidatesMatch =
+      /^\/api\/kitchen\/offers\/([a-zA-Z0-9-]+)\/students$/.exec(url.pathname);
+    if (req.method === "GET" && candidatesMatch)
+      return json(res, 200, {
+        students: await kitchenStudentCandidates(
+          user.kitchenId,
+          candidatesMatch[1],
+          url.searchParams.get("q") || "",
+        ),
+      });
 
     if (req.method !== "POST" || !sameOrigin(req))
       return error(res, 403, "Solicitud no permitida.");
@@ -262,6 +275,20 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/kitchen/offers")
       return json(res, 200, { id: await saveOffer(user.kitchenId, data) });
 
+    if (url.pathname === "/api/kitchen/reservations/add")
+      return json(
+        res,
+        201,
+        await addKitchenReservation(user.kitchenId, user.id, data),
+      );
+
+    if (url.pathname === "/api/kitchen/reservations/update")
+      return json(
+        res,
+        200,
+        await updateKitchenReservation(user.kitchenId, user.id, data),
+      );
+
     return error(res, 404, "Ruta no encontrada.");
   }
 
@@ -291,7 +318,9 @@ async function handleApi(req, res, url) {
       typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
     const password = typeof data.password === "string" ? data.password : "";
     const studentCode =
-      typeof data.studentCode === "string" ? data.studentCode.trim() : "";
+      typeof data.studentCode === "string"
+        ? data.studentCode.trim().toUpperCase()
+        : "";
     const career = typeof data.career === "string" ? data.career.trim() : "";
     const birthDate =
       data.birthDate == null || data.birthDate === "" ? null : data.birthDate;
@@ -302,8 +331,8 @@ async function handleApi(req, res, url) {
     if (!validateEmail(email))
       return error(res, 400, "Usa tu correo institucional @utec.edu.pe.");
 
-    if (!/^[0-9]{9}$/.test(studentCode))
-      return error(res, 400, "El código de estudiante debe tener 9 dígitos.");
+    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})$/.test(studentCode))
+      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE5612345.");
 
     if (!careers.includes(career))
       return error(res, 400, "Selecciona una carrera de la lista.");
@@ -400,7 +429,9 @@ async function handleApi(req, res, url) {
       return error(res, 400, "Datos de perfil inválidos.");
     const name = typeof data.name === "string" ? data.name.trim() : "";
     const studentCode =
-      typeof data.studentCode === "string" ? data.studentCode.trim() : "";
+      typeof data.studentCode === "string"
+        ? data.studentCode.trim().toUpperCase()
+        : "";
     const career = typeof data.career === "string" ? data.career.trim() : "";
     const birthDate =
       data.birthDate == null || data.birthDate === "" ? null : data.birthDate;
@@ -408,8 +439,8 @@ async function handleApi(req, res, url) {
     if (name.length < 2 || name.length > 80)
       return error(res, 400, "Escribe tu nombre (2 a 80 caracteres).");
 
-    if (!/^[0-9]{9}$/.test(studentCode))
-      return error(res, 400, "El código de estudiante debe tener 9 dígitos.");
+    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})$/.test(studentCode))
+      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE5612345.");
 
     if (!careers.includes(career))
       return error(res, 400, "Selecciona una carrera de la lista.");

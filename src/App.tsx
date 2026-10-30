@@ -74,6 +74,9 @@ type Page =
   | "cocinaEstadisticas"
   | "cocinaCuenta";
 type PickupOption = { key: string; start: string; end: string };
+const validStudentCode = (code: string) =>
+  /^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})$/.test(code);
+const studentCodeHelp = "Usa 9 dígitos o el formato 1234PRE5612345.";
 const routes: Record<Page, string> = {
   inicio: "#inicio",
   buscar: "#menu",
@@ -700,8 +703,8 @@ function AuthPanel({
           ? "Ingresa tu contraseña."
           : field === nameRef.current
             ? "Escribe tu nombre completo."
-            : field.inputMode === "numeric"
-              ? "El código de estudiante debe tener 9 dígitos."
+            : field.name === "studentCode"
+              ? studentCodeHelp
               : "Revisa este campo.",
     );
   }
@@ -874,20 +877,26 @@ function AuthPanel({
               <label>
                 Código de estudiante
                 <input
+                  name="studentCode"
                   type="text"
-                  inputMode="numeric"
+                  inputMode="text"
+                  autoCapitalize="characters"
                   autoComplete="off"
                   minLength={9}
-                  maxLength={9}
-                  pattern="[0-9]{9}"
-                  title="Usa los 9 dígitos de tu código"
+                  maxLength={14}
+                  pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})"
+                  title={studentCodeHelp}
                   required
                   value={studentCode}
                   onChange={(event) => {
-                    setStudentCode(event.target.value.replace(/\D/g, ""));
+                    setStudentCode(
+                      event.target.value
+                        .toUpperCase()
+                        .replace(/[^0-9A-Z]/g, ""),
+                    );
                     setError("");
                   }}
-                  placeholder="9 dígitos"
+                  placeholder="9 dígitos o PRE"
                   spellCheck={false}
                 />
               </label>
@@ -1108,7 +1117,7 @@ function AccountProfile({
     career !== (user.career || "") ||
     birthDate !== (user.birthDate || "");
   const legacyStudentCode =
-    !!user.studentCode && !/^[0-9]{9}$/.test(user.studentCode);
+    !!user.studentCode && !validStudentCode(user.studentCode);
   const birthDateLabel = user.birthDate
     ? birthDateDisplay(user.birthDate)
     : "Sin registrar";
@@ -1200,25 +1209,27 @@ function AccountProfile({
           <label>
             Código de estudiante
             <input
+              name="studentCode"
               type="text"
-              inputMode="numeric"
+              inputMode="text"
+              autoCapitalize="characters"
               autoComplete="off"
               minLength={9}
-              maxLength={9}
-              pattern="[0-9]{9}"
-              title="Usa los 9 dígitos de tu código"
+              maxLength={14}
+              pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})"
+              title={studentCodeHelp}
               required
               value={studentCode}
               onChange={(event) => {
-                setStudentCode(event.target.value.replace(/\D/g, ""));
+                setStudentCode(
+                  event.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""),
+                );
                 setSuccess("");
               }}
               spellCheck={false}
             />
             {legacyStudentCode && (
-              <small className="account-field-help">
-                Actualiza tu código a 9 dígitos para guardar cambios.
-              </small>
+              <small className="account-field-help">{studentCodeHelp}</small>
             )}
           </label>
           <CareerPicker
@@ -1265,9 +1276,7 @@ function AccountProfile({
             <dt>Código de estudiante</dt>
             <dd>{user.studentCode || "Sin registrar"}</dd>
             {legacyStudentCode && (
-              <small className="account-field-help">
-                Actualiza tu código a 9 dígitos para guardar cambios.
-              </small>
+              <small className="account-field-help">{studentCodeHelp}</small>
             )}
           </div>
           <div className="account-detail account-detail-career">
@@ -2023,7 +2032,9 @@ export default function App() {
           <>
             <div className="location-line">
               <BrandLocationIcon size={22} />
-              <span>Punto de encuentro: comedor de la U</span>
+              <span>
+                Punto de encuentro: Entrada del Comedor UTEC en piso 2
+              </span>
             </div>
             {featured.length > 0 && (
               <FeaturedCarousel slides={featured} onKitchen={goKitchen} />

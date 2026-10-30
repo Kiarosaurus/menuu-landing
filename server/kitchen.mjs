@@ -214,37 +214,52 @@ export async function kitchenData(kitchenId) {
   const start = weekStart();
   const today = todayLima();
   const since = new Date(Date.now() - 28 * 86400_000).toISOString();
-  const [profile, dishes, offers, stats, hours, timeline, orders] =
-    await Promise.all([
-      db.query(
-        'SELECT id,name,description,logo_url AS "logoUrl",image_url AS "imageUrl" FROM kitchens WHERE id=$1',
-        [kitchenId],
-      ),
-      db.query(
-        'SELECT id,name,description,price_cents AS "priceCents",image_url AS "imageUrl",image_alt AS "imageAlt",active FROM dishes WHERE kitchen_id=$1 ORDER BY active DESC,name',
-        [kitchenId],
-      ),
-      db.query(
-        `SELECT id,dish_id AS "dishId",offer_date AS date,delivery_time AS "deliveryTime",pickup_until AS "pickupUntil",booking_deadline_at AS "bookingDeadline",capacity,reserved_count AS "reservedCount",description_override AS "descriptionOverride",price_override_cents AS "priceOverrideCents",customization_override AS "hasCustomizationOverride",published_at AS "publishedAt",sold_out_at AS "soldOutAt" FROM offers WHERE kitchen_id=$1 AND offer_date >= $2 AND offer_date < date($2, '+14 days') ORDER BY offer_date,delivery_time,id`,
-        [kitchenId, start],
-      ),
-      db.query(
-        `SELECT o.id,o.dish_id AS "dishId",d.name AS "dishName",o.offer_date AS date,o.capacity,o.reserved_count AS "reservedCount",o.published_at AS "publishedAt",o.sold_out_at AS "soldOutAt",COALESCE(sum(i.quantity) FILTER (WHERE r.status='reservado'),0) AS units,COALESCE(sum(i.total_cents) FILTER (WHERE r.status='reservado'),0) AS "revenueCents",count(DISTINCT r.id) FILTER (WHERE r.status='reservado') AS "orderCount",min(r.created_at) FILTER (WHERE r.status='reservado') AS "firstBookingAt" FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id LEFT JOIN order_items i ON i.offer_id=o.id LEFT JOIN orders r ON r.id=i.order_id AND r.created_at >= $2 WHERE o.kitchen_id=$1 AND o.offer_date >= date($3, '-28 days') AND o.offer_date < date($3, '+14 days') GROUP BY o.id,d.name ORDER BY o.offer_date DESC,o.id`,
-        [kitchenId, since, today],
-      ),
-      db.query(
-        `SELECT CAST(strftime('%H',r.created_at,'-5 hours') AS INTEGER) AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY hour ORDER BY hour`,
-        [kitchenId, since],
-      ),
-      db.query(
-        `SELECT i.offer_id AS "offerId",strftime('%Y-%m-%d %H:00',r.created_at,'-5 hours') AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY i.offer_id,hour ORDER BY hour`,
-        [kitchenId, since],
-      ),
-      db.query(
-        `SELECT count(DISTINCT id) AS count FROM orders WHERE kitchen_id=$1 AND status='reservado' AND created_at >= $2`,
-        [kitchenId, since],
-      ),
-    ]);
+  const [
+    profile,
+    dishes,
+    offers,
+    stats,
+    hours,
+    timeline,
+    orders,
+    reservations,
+  ] = await Promise.all([
+    db.query(
+      'SELECT id,name,description,logo_url AS "logoUrl",image_url AS "imageUrl" FROM kitchens WHERE id=$1',
+      [kitchenId],
+    ),
+    db.query(
+      'SELECT id,name,description,price_cents AS "priceCents",image_url AS "imageUrl",image_alt AS "imageAlt",active FROM dishes WHERE kitchen_id=$1 ORDER BY active DESC,name',
+      [kitchenId],
+    ),
+    db.query(
+      `SELECT id,dish_id AS "dishId",offer_date AS date,delivery_time AS "deliveryTime",pickup_until AS "pickupUntil",booking_deadline_at AS "bookingDeadline",capacity,reserved_count AS "reservedCount",description_override AS "descriptionOverride",price_override_cents AS "priceOverrideCents",customization_override AS "hasCustomizationOverride",published_at AS "publishedAt",sold_out_at AS "soldOutAt" FROM offers WHERE kitchen_id=$1 AND offer_date >= $2 AND offer_date < date($2, '+14 days') ORDER BY offer_date,delivery_time,id`,
+      [kitchenId, start],
+    ),
+    db.query(
+      `SELECT o.id,o.dish_id AS "dishId",d.name AS "dishName",o.offer_date AS date,o.capacity,o.reserved_count AS "reservedCount",o.published_at AS "publishedAt",o.sold_out_at AS "soldOutAt",COALESCE(sum(i.quantity) FILTER (WHERE r.status='reservado'),0) AS units,COALESCE(sum(i.total_cents) FILTER (WHERE r.status='reservado'),0) AS "revenueCents",count(DISTINCT r.id) FILTER (WHERE r.status='reservado') AS "orderCount",min(r.created_at) FILTER (WHERE r.status='reservado') AS "firstBookingAt" FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id LEFT JOIN order_items i ON i.offer_id=o.id LEFT JOIN orders r ON r.id=i.order_id AND r.created_at >= $2 WHERE o.kitchen_id=$1 AND o.offer_date >= date($3, '-28 days') AND o.offer_date < date($3, '+14 days') GROUP BY o.id,d.name ORDER BY o.offer_date DESC,o.id`,
+      [kitchenId, since, today],
+    ),
+    db.query(
+      `SELECT CAST(strftime('%H',r.created_at,'-5 hours') AS INTEGER) AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY hour ORDER BY hour`,
+      [kitchenId, since],
+    ),
+    db.query(
+      `SELECT i.offer_id AS "offerId",strftime('%Y-%m-%d %H:00',r.created_at,'-5 hours') AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY i.offer_id,hour ORDER BY hour`,
+      [kitchenId, since],
+    ),
+    db.query(
+      `SELECT count(DISTINCT id) AS count FROM orders WHERE kitchen_id=$1 AND status='reservado' AND created_at >= $2`,
+      [kitchenId, since],
+    ),
+    db.query(
+      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.pickup_confirmed AS "pickupConfirmed",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt"
+         FROM orders r JOIN order_items i ON i.order_id=r.id JOIN users u ON u.id=r.user_id JOIN offers o ON o.id=i.offer_id
+         WHERE r.kitchen_id=$1 AND o.kitchen_id=$1 AND o.offer_date >= $2 AND o.offer_date < date($2, '+14 days')
+         ORDER BY o.offer_date,o.delivery_time,u.name,r.created_at`,
+      [kitchenId, start],
+    ),
+  ]);
 
   if (!profile.rows[0]) fail("Cocina no encontrada.", 404);
   const [dishOptions, offerOptions] = await Promise.all([
@@ -265,6 +280,7 @@ export async function kitchenData(kitchenId) {
         row.priceOverrideCents == null ? null : row.priceOverrideCents / 100,
       customization: offerOptions.get(row.id) || [],
     })),
+    reservations: reservations.rows,
     analytics: {
       offers: stats.rows,
       bookingHours: hours.rows,
@@ -272,6 +288,196 @@ export async function kitchenData(kitchenId) {
       totalOrders: orders.rows[0].count,
     },
   };
+}
+
+const paymentMethods = new Set(["QR", "Efectivo", "Transferencia", "Otro"]);
+
+export async function kitchenStudentCandidates(
+  kitchenId,
+  offerId,
+  search = "",
+) {
+  const query = text(search, 80);
+  if (query.length > 80) fail("Búsqueda demasiado larga.");
+  const offer = await getDb().query(
+    "SELECT id FROM offers WHERE id=$1 AND kitchen_id=$2",
+    [offerId, kitchenId],
+  );
+  if (!offer.rowCount) fail("Menú no encontrado.", 404);
+  return (
+    await getDb().query(
+      `SELECT u.id,u.name,u.email FROM users u WHERE u.role='consumer'
+       AND (u.name LIKE $2 OR u.email LIKE $2)
+       AND NOT EXISTS (SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=u.id AND i.offer_id=$1)
+       AND NOT EXISTS (SELECT 1 FROM orders r WHERE r.user_id=u.id AND r.status='reservado' AND r.fulfillment_status='no_show')
+       ORDER BY u.name,u.email LIMIT 30`,
+      [offerId, `%${query.replace(/[%_]/g, "")}%`],
+    )
+  ).rows;
+}
+
+export async function addKitchenReservation(kitchenId, actorId, data) {
+  const offerId = typeof data?.offerId === "string" ? data.offerId : "";
+  const studentId = typeof data?.studentId === "string" ? data.studentId : "";
+  const quantity = Number(data?.quantity ?? 1);
+  if (
+    !offerId ||
+    !studentId ||
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > 10
+  )
+    fail("Revisa el estudiante y la cantidad de porciones.");
+  return transaction(async (db) => {
+    const offer = (
+      await db.query(
+        `SELECT o.id,o.kitchen_id AS "kitchenId",o.offer_date AS date,o.delivery_time AS "deliveryTime",o.pickup_until AS "pickupUntil",o.capacity,o.reserved_count AS "reservedCount",d.name AS "dishName",d.image_url AS "imageUrl",COALESCE(o.price_override_cents,d.price_cents) AS "priceCents",k.name AS "kitchenName"
+         FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id JOIN kitchens k ON k.id=o.kitchen_id
+         WHERE o.id=$1 AND o.kitchen_id=$2`,
+        [offerId, kitchenId],
+      )
+    ).rows[0];
+    if (!offer) fail("Menú no encontrado.", 404);
+    if (
+      Date.now() >
+      new Date(`${offer.date}T${offer.pickupUntil}:00-05:00`).getTime()
+    )
+      fail("El recojo de este menú ya terminó.", 409);
+    const student = (
+      await db.query("SELECT id FROM users WHERE id=$1 AND role='consumer'", [
+        studentId,
+      ])
+    ).rows[0];
+    if (!student) fail("Estudiante no encontrado.", 404);
+    if (
+      (
+        await db.query(
+          `SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=$1 AND i.offer_id=$2 LIMIT 1`,
+          [studentId, offerId],
+        )
+      ).rowCount
+    )
+      fail("Este estudiante ya tiene una reserva en este menú.", 409);
+    if (
+      (
+        await db.query(
+          "SELECT 1 FROM orders WHERE user_id=$1 AND status='reservado' AND fulfillment_status='no_show' LIMIT 1",
+          [studentId],
+        )
+      ).rowCount
+    )
+      fail("Este estudiante tiene una ausencia pendiente de revisión.", 409);
+    const stock = await db.query(
+      `UPDATE offers SET reserved_count=reserved_count+$3,sold_out_at=CASE WHEN reserved_count+$3=capacity THEN $4 ELSE sold_out_at END
+       WHERE id=$1 AND kitchen_id=$2 AND reserved_count+$3<=capacity RETURNING id`,
+      [offerId, kitchenId, quantity, new Date().toISOString()],
+    );
+    if (!stock.rowCount) fail("No quedan suficientes porciones.", 409);
+    const orderId = randomUUID();
+    const total = offer.priceCents * quantity;
+    await db.query(
+      `INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'reservado','QR al recibir',$10)`,
+      [
+        orderId,
+        `MU-${randomUUID().slice(0, 8).toUpperCase()}`,
+        studentId,
+        kitchenId,
+        offer.kitchenName,
+        offer.date,
+        offer.deliveryTime,
+        offer.pickupUntil,
+        "Entrada del Comedor UTEC en piso 2",
+        total,
+      ],
+    );
+    await db.query(
+      `INSERT INTO order_items(order_id,offer_id,dish_name,image_url,quantity,unit_price_cents,total_cents)
+       VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        orderId,
+        offerId,
+        offer.dishName,
+        offer.imageUrl,
+        quantity,
+        offer.priceCents,
+        total,
+      ],
+    );
+    await db.query(
+      "INSERT INTO kitchen_reservation_events(id,order_id,actor_user_id,action,detail) VALUES($1,$2,$3,'manual_add',$4)",
+      [randomUUID(), orderId, actorId, `${quantity} porción(es) en ${offerId}`],
+    );
+    return { orderId };
+  });
+}
+
+export async function updateKitchenReservation(kitchenId, actorId, data) {
+  const orderId = typeof data?.orderId === "string" ? data.orderId : "";
+  const action = data?.action;
+  if (
+    !orderId ||
+    !["confirm", "deliver", "cancel", "reset", "payment"].includes(action)
+  )
+    fail("Cambio de reserva inválido.");
+  return transaction(async (db) => {
+    const order = (
+      await db.query(
+        `SELECT id,status,fulfillment_status AS "fulfillmentStatus",pickup_confirmed AS "pickupConfirmed",offer_date AS date,pickup_until AS "pickupUntil" FROM orders WHERE id=$1 AND kitchen_id=$2`,
+        [orderId, kitchenId],
+      )
+    ).rows[0];
+    if (!order) fail("Reserva no encontrada.", 404);
+    if (order.status !== "reservado")
+      fail("Esta reserva ya está cancelada.", 409);
+    let detail = "";
+    if (action === "payment") {
+      if (!paymentMethods.has(data.paymentMethod))
+        fail("Selecciona un medio de pago válido.");
+      await db.query(
+        "UPDATE orders SET payment_recorded=$3 WHERE id=$1 AND kitchen_id=$2",
+        [orderId, kitchenId, data.paymentMethod],
+      );
+      detail = data.paymentMethod;
+    } else {
+      if (
+        action === "cancel" &&
+        Date.now() <
+          new Date(`${order.date}T${order.pickupUntil}:00-05:00`).getTime()
+      )
+        fail(
+          "Espera hasta que termine la ventana de recojo para marcar ausencia.",
+          409,
+        );
+      if (action === "cancel" && order.pickupConfirmed)
+        fail(
+          "Esta persona confirmó que vendría. Usa «Sin entregar» si aún no recibió su comida.",
+          409,
+        );
+      const fulfillment =
+        action === "deliver"
+          ? "delivered"
+          : action === "cancel"
+            ? "no_show"
+            : "pending";
+      const confirmed =
+        action === "confirm" || action === "deliver"
+          ? 1
+          : action === "reset"
+            ? 0
+            : order.pickupConfirmed;
+      await db.query(
+        "UPDATE orders SET fulfillment_status=$3,pickup_confirmed=$4,review_enabled=CASE WHEN $3='delivered' THEN review_enabled ELSE 0 END WHERE id=$1 AND kitchen_id=$2",
+        [orderId, kitchenId, fulfillment, confirmed],
+      );
+      detail = fulfillment;
+    }
+    await db.query(
+      "INSERT INTO kitchen_reservation_events(id,order_id,actor_user_id,action,detail) VALUES($1,$2,$3,$4,$5)",
+      [randomUUID(), orderId, actorId, action, detail],
+    );
+    return { ok: true };
+  });
 }
 
 export async function updateKitchen(kitchenId, data) {

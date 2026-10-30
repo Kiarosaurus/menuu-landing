@@ -61,6 +61,19 @@ type Offer = {
   publishedAt: string | null;
   soldOutAt: string | null;
 };
+type KitchenReservation = {
+  offerId: string;
+  orderId: string;
+  code: string;
+  studentName: string;
+  studentEmail: string;
+  quantity: number;
+  status: string;
+  fulfillmentStatus: "pending" | "delivered" | "no_show";
+  pickupConfirmed: boolean;
+  paymentRecorded: string | null;
+  createdAt: string;
+};
 type StatOffer = {
   id: string;
   dishId: string;
@@ -85,6 +98,7 @@ type Data = {
   };
   dishes: Dish[];
   offers: Offer[];
+  reservations: KitchenReservation[];
   analytics: {
     offers: StatOffer[];
     bookingHours: { hour: number; units: number }[];
@@ -616,11 +630,15 @@ function KitchenMenuRow({
   dish,
   today,
   onEdit,
+  onReservations,
+  reservationsOpen,
 }: {
   offer: Offer;
   dish?: Dish;
   today: string;
   onEdit: () => void;
+  onReservations: () => void;
+  reservationsOpen: boolean;
 }) {
   const past = offer.date < today;
   return (
@@ -663,8 +681,292 @@ function KitchenMenuRow({
             Editar
           </Button>
         )}
+        <Button
+          variant="quiet"
+          onClick={onReservations}
+          aria-expanded={reservationsOpen}
+        >
+          Reservas
+        </Button>
       </div>
     </article>
+  );
+}
+
+function KitchenReservationPanel({
+  offer,
+  reservations,
+  onChanged,
+  onClose,
+}: {
+  offer: Offer;
+  reservations: KitchenReservation[];
+  onChanged: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [students, setStudents] = useState<
+    { id: string; name: string; email: string }[]
+  >([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [busyOrder, setBusyOrder] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setLoadingStudents(true);
+      try {
+        const result = await request<{ students: typeof students }>(
+          `/api/kitchen/offers/${offer.id}/students?q=${encodeURIComponent(search)}`,
+        );
+        if (active) setStudents(result.students);
+      } catch (cause) {
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "No pudimos buscar estudiantes.",
+          );
+      } finally {
+        if (active) setLoadingStudents(false);
+      }
+    }, 220);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [offer.id, search, reservations]);
+  async function change(path: string, payload: unknown, key: string) {
+    setBusyOrder(key);
+    setError("");
+    try {
+      await request(path, payload);
+      await onChanged();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos guardar la reserva.",
+      );
+    } finally {
+      setBusyOrder("");
+    }
+  }
+  const pickupEnded =
+    Date.now() >=
+    new Date(`${offer.date}T${offer.pickupUntil}:00-05:00`).getTime();
+  const canAdd = !pickupEnded && offer.reservedCount < offer.capacity;
+  return (
+    <section className="km-reservations" aria-label="Gestión de reservas">
+      <div className="km-reservations-head">
+        <div>
+          <span className="eyebrow">RESERVAS DEL MENÚ</span>
+          <h2>
+            {dateLabel(offer.date, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </h2>
+          <p>
+            {reservations.length} pedidos · {offer.reservedCount} de{" "}
+            {offer.capacity} porciones
+          </p>
+        </div>
+        <button
+          className="km-icon-button"
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar reservas"
+        >
+          <X size={20} />
+        </button>
+      </div>
+      {error && (
+        <p className="km-reservations-error" role="alert">
+          {error}
+        </p>
+      )}
+      {reservations.length ? (
+        <div className="km-reservation-list">
+          {reservations.map((item) => {
+            const state =
+              item.fulfillmentStatus === "delivered"
+                ? "Entregado"
+                : item.fulfillmentStatus === "no_show"
+                  ? "Cancelado · no vino"
+                  : item.pickupConfirmed
+                    ? "Sin entregar · confirmó asistencia"
+                    : "Pendiente de confirmar";
+            return (
+              <article className="km-reservation" key={item.orderId}>
+                <div className="km-reservation-person">
+                  <strong>{item.studentName}</strong>
+                  <span>{item.studentEmail}</span>
+                  <small>
+                    {item.quantity}{" "}
+                    {item.quantity === 1 ? "porción" : "porciones"} ·{" "}
+                    {item.code}
+                  </small>
+                </div>
+                <div className="km-reservation-manage">
+                  <span className="km-reservation-state">{state}</span>
+                  <div className="km-reservation-actions">
+                    {item.fulfillmentStatus === "pending" &&
+                      !item.pickupConfirmed && (
+                        <Button
+                          variant="secondary"
+                          disabled={!!busyOrder}
+                          onClick={() =>
+                            change(
+                              "/api/kitchen/reservations/update",
+                              { orderId: item.orderId, action: "confirm" },
+                              item.orderId,
+                            )
+                          }
+                        >
+                          Confirmó asistencia
+                        </Button>
+                      )}
+                    {item.fulfillmentStatus !== "delivered" &&
+                      item.fulfillmentStatus !== "no_show" && (
+                        <Button
+                          variant="secondary"
+                          disabled={!!busyOrder}
+                          onClick={() =>
+                            change(
+                              "/api/kitchen/reservations/update",
+                              { orderId: item.orderId, action: "deliver" },
+                              item.orderId,
+                            )
+                          }
+                        >
+                          Entregado
+                        </Button>
+                      )}
+                    {item.fulfillmentStatus === "pending" &&
+                      !item.pickupConfirmed &&
+                      pickupEnded && (
+                        <Button
+                          variant="quiet"
+                          disabled={!!busyOrder}
+                          onClick={() =>
+                            change(
+                              "/api/kitchen/reservations/update",
+                              { orderId: item.orderId, action: "cancel" },
+                              item.orderId,
+                            )
+                          }
+                        >
+                          No vino · cancelar
+                        </Button>
+                      )}
+                    {(item.fulfillmentStatus !== "pending" ||
+                      item.pickupConfirmed) && (
+                      <Button
+                        variant="quiet"
+                        disabled={!!busyOrder}
+                        onClick={() =>
+                          change(
+                            "/api/kitchen/reservations/update",
+                            { orderId: item.orderId, action: "reset" },
+                            item.orderId,
+                          )
+                        }
+                      >
+                        Corregir estado
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <KitchenSelect
+                  id={`payment-${item.orderId}`}
+                  label="Pago efectuado"
+                  value={item.paymentRecorded || ""}
+                  placeholder="Sin registrar"
+                  options={["QR", "Efectivo", "Transferencia", "Otro"].map(
+                    (value) => ({ value, label: value }),
+                  )}
+                  onChange={(paymentMethod) =>
+                    change(
+                      "/api/kitchen/reservations/update",
+                      {
+                        orderId: item.orderId,
+                        action: "payment",
+                        paymentMethod,
+                      },
+                      item.orderId,
+                    )
+                  }
+                />
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="km-empty">Aún no hay reservas en este menú.</p>
+      )}
+      <div className="km-reservation-add">
+        <div>
+          <h3>Añadir estudiante</h3>
+          <p>
+            Solo aparecen cuentas sin reserva en este menú. Se añade una porción
+            y se descuenta del cupo.
+          </p>
+        </div>
+        {canAdd ? (
+          <>
+            <label>
+              Buscar por nombre o correo
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Nombre o correo UTEC"
+              />
+            </label>
+            <div className="km-candidate-list" aria-live="polite">
+              {loadingStudents ? (
+                <p>Buscando estudiantes…</p>
+              ) : students.length ? (
+                students.map((student) => (
+                  <div key={student.id}>
+                    <span>
+                      <strong>{student.name}</strong>
+                      <small>{student.email}</small>
+                    </span>
+                    <Button
+                      variant="secondary"
+                      disabled={!!busyOrder}
+                      onClick={() =>
+                        change(
+                          "/api/kitchen/reservations/add",
+                          {
+                            offerId: offer.id,
+                            studentId: student.id,
+                            quantity: 1,
+                          },
+                          student.id,
+                        )
+                      }
+                    >
+                      Añadir
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <p>No hay estudiantes disponibles con esa búsqueda.</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="km-hint">
+            Ya no se pueden añadir reservas: el cupo se agotó o terminó el
+            recojo.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1356,6 +1658,9 @@ export default function KitchenDashboard({
   const [previewDish, setPreviewDish] = useState<Dish | null>(null);
   const [createdDish, setCreatedDish] = useState(false);
   const [offer, setOffer] = useState<Offer | null>(null);
+  const [reservationsOfferId, setReservationsOfferId] = useState<string | null>(
+    null,
+  );
   const [week, setWeek] = useState(0);
   const [photoBusy, setPhotoBusy] = useState(false);
   const refresh = async () => {
@@ -2084,6 +2389,12 @@ export default function KitchenDashboard({
                       offer={item}
                       dish={data.dishes.find((d) => d.id === item.dishId)}
                       today={current}
+                      reservationsOpen={reservationsOfferId === item.id}
+                      onReservations={() =>
+                        setReservationsOfferId((current) =>
+                          current === item.id ? null : item.id,
+                        )
+                      }
                       onEdit={() =>
                         setOffer({
                           ...item,
@@ -2093,6 +2404,21 @@ export default function KitchenDashboard({
                       }
                     />
                   ))}
+                  {reservationsOfferId &&
+                    data.offers.find(
+                      (item) => item.id === reservationsOfferId,
+                    ) && (
+                      <KitchenReservationPanel
+                        offer={data.offers.find(
+                          (item) => item.id === reservationsOfferId,
+                        )!}
+                        reservations={data.reservations.filter(
+                          (item) => item.offerId === reservationsOfferId,
+                        )}
+                        onChanged={refresh}
+                        onClose={() => setReservationsOfferId(null)}
+                      />
+                    )}
                 </div>
               ) : (
                 <div className="km-empty">

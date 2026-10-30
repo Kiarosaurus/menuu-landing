@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,12 +45,61 @@ if (!process.env.MENUU_TEST_DB_PATH) {
     await import("../server/repository.mjs");
   const { kitchenData, kitchenImage, saveDish, saveKitchenImage, saveOffer } =
     await import("../server/kitchen.mjs");
+  const {
+    addKitchenReservation,
+    kitchenStudentCandidates,
+    updateKitchenReservation,
+  } = await import("../server/kitchen.mjs");
   const { handleRequest } = await import("../server/index.mjs");
 
   try {
+    const migrationDb = getDb();
+    await migrationDb.query(
+      "CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))",
+    );
+    const initialSql = await readFile(
+      fileURLToPath(
+        new URL("../server/migrations/0001_initial.sql", import.meta.url),
+      ),
+      "utf8",
+    );
+    for (const statement of initialSql
+      .split(/;\s*(?:\r?\n|$)/)
+      .map((value) => value.trim())
+      .filter(Boolean))
+      await migrationDb.query(statement);
+    await migrationDb.query(
+      "INSERT INTO schema_migrations(name) VALUES ('0001_initial.sql')",
+    );
+    await migrationDb.query(
+      "INSERT INTO users(id,name,email,password_hash,role,student_code,career) VALUES ('before-migration','Estudiante anterior','anterior@utec.edu.pe','hash','consumer','800000001','Ingeniería')",
+    );
+    await migrationDb.query(
+      "INSERT INTO kitchens(id,name) VALUES ('old-kitchen','Cocina anterior')",
+    );
+    await migrationDb.query(
+      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ('old-session','before-migration','2099-01-01')",
+    );
+    await migrationDb.query(
+      "INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents) VALUES ('old-order','MU-OLD','before-migration','old-kitchen','Cocina anterior','2020-01-01','13:00','13:10','Comedor UTEC','reservado','QR al recibir',1100)",
+    );
     await migrate();
     await migrate();
     const db = getDb();
+    assert.equal(
+      (
+        await db.query(
+          "SELECT user_id FROM sessions WHERE token_hash='old-session'",
+        )
+      ).rows[0].user_id,
+      "before-migration",
+    );
+    assert.equal((await db.query("PRAGMA foreign_key_check")).rows.length, 0);
+    assert.equal(
+      (await db.query("SELECT pickup_point FROM orders WHERE id='old-order'"))
+        .rows[0].pickup_point,
+      "Entrada del Comedor UTEC en piso 2",
+    );
 
     await db.query(
       "INSERT INTO kitchens(id,name,description) VALUES ($1,$2,$3)",
@@ -190,7 +239,11 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       },
       new Date(`${offerDate}T14:00:00-05:00`),
     );
-    assert.equal((await getCatalog()).kitchens[0].rating, 5);
+    assert.equal(
+      (await getCatalog()).kitchens.find((item) => item.id === "test-kitchen")
+        .rating,
+      5,
+    );
     const server = createServer(handleRequest);
 
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -216,6 +269,145 @@ if (!process.env.MENUU_TEST_DB_PATH) {
 
       assert.equal(bootstrap.status, 200);
       assert.equal((await bootstrap.json()).user.email, "nueva@utec.edu.pe");
+      const preRegistered = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Estudiante PRE",
+          email: "pre@utec.edu.pe",
+          password: "clave-segura",
+          studentCode: "1234pre5612345",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(preRegistered.status, 201);
+      assert.equal(
+        (await preRegistered.json()).user.studentCode,
+        "1234PRE5612345",
+      );
+      const invalidPre = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Código inválido",
+          email: "invalido@utec.edu.pe",
+          password: "clave-segura",
+          studentCode: "1234PREX612345",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(invalidPre.status, 400);
+      const preUser = (
+        await db.query("SELECT id FROM users WHERE email='pre@utec.edu.pe'")
+      ).rows[0];
+      await db.query(
+        "INSERT INTO users(id,name,email,password_hash,role,kitchen_id) VALUES ('kitchen-actor','Cocina temporal','cocina@menuu.test','hash','kitchen','test-kitchen')",
+      );
+      await db.query("UPDATE offers SET capacity=2 WHERE id=$1", [offerId]);
+      const candidates = await kitchenStudentCandidates(
+        "test-kitchen",
+        offerId,
+        "pre@",
+      );
+      assert.equal(
+        candidates.some((student) => student.id === preUser.id),
+        true,
+      );
+      await assert.rejects(
+        kitchenStudentCandidates("another-kitchen", offerId, "pre@"),
+        { status: 404 },
+      );
+      const manual = await addKitchenReservation(
+        "test-kitchen",
+        "kitchen-actor",
+        {
+          offerId,
+          studentId: preUser.id,
+          quantity: 1,
+        },
+      );
+      assert.equal(
+        (await kitchenStudentCandidates("test-kitchen", offerId, "pre@")).some(
+          (student) => student.id === preUser.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (
+          await db.query("SELECT reserved_count FROM offers WHERE id=$1", [
+            offerId,
+          ])
+        ).rows[0].reserved_count,
+        2,
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: manual.orderId,
+        action: "confirm",
+      });
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: manual.orderId,
+        action: "payment",
+        paymentMethod: "Efectivo",
+      });
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: manual.orderId,
+        action: "deliver",
+      });
+      const manualOrder = (await getOrders(preUser.id)).find(
+        (order) => order.id === manual.orderId,
+      );
+      assert.equal(
+        (await kitchenData("test-kitchen")).reservations.some(
+          (item) =>
+            item.orderId === manual.orderId &&
+            item.studentEmail === "pre@utec.edu.pe",
+        ),
+        true,
+      );
+      await assert.rejects(
+        updateKitchenReservation("another-kitchen", "kitchen-actor", {
+          orderId: manual.orderId,
+          action: "reset",
+        }),
+        { status: 404 },
+      );
+      assert.equal(manualOrder.fulfillmentStatus, "delivered");
+      assert.equal(manualOrder.payment, "Efectivo");
+      assert.equal(
+        manualOrder.pickupPoint,
+        "Entrada del Comedor UTEC en piso 2",
+      );
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: first[0].id,
+          action: "cancel",
+        }),
+        /Espera hasta que termine/,
+      );
+      await db.query(
+        "UPDATE orders SET offer_date='2020-01-01',pickup_until='13:10' WHERE id=$1",
+        [first[0].id],
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: first[0].id,
+        action: "cancel",
+      });
+      assert.equal(
+        (await getOrders(consumers[0].id)).find(
+          (order) => order.id === first[0].id,
+        ).fulfillmentStatus,
+        "no_show",
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: first[0].id,
+        action: "reset",
+      });
+      assert.equal(
+        (await getOrders(consumers[0].id)).find(
+          (order) => order.id === first[0].id,
+        ).fulfillmentStatus,
+        "pending",
+      );
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
