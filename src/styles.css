@@ -3520,6 +3520,14 @@ p {
     width: 23px;
     height: 23px;
   }
+  .kitchen-picker-options {
+    left: 0;
+    right: auto;
+    width: min(310px, calc(100vw - 40px));
+    max-width: none;
+    max-height: min(320px, 48dvh);
+    overflow-y: auto;
+  }
   .pickup-picker summary {
     gap: 6px;
     padding-inline: 8px;
@@ -3548,9 +3556,12 @@ p {
     width: 52px;
     height: 52px;
   }
+  .featured-slide .welcome-photo .featured-dish-label {
+    bottom: 48px;
+  }
   .featured-arrow {
-    --arrow-y: 0px;
-    top: 86px;
+    --arrow-y: -50%;
+    top: 215px;
     bottom: auto;
     width: 44px;
     height: 44px;
@@ -3587,7 +3598,7 @@ p {
     height: 205px;
   }
   .featured-arrow {
-    top: 81px;
+    top: 205px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
