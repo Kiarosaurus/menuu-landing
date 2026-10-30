@@ -8,7 +8,6 @@
 } from "react";
 import {
   ArrowRight,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -2784,7 +2783,7 @@ function OrderCard({
         ))}
       </div>
       <div className="order-pickup">
-        <CalendarDays size={20} />
+        <BrandCalendarIcon size={20} />
         <div>
           <strong>Recojo</strong>
           <span>
