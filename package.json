@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "kitchens:create": "node scripts/create-kitchens.mjs",
     "test:libsql": "node scripts/test-libsql.mjs"
   },
   "dependencies": {
