@@ -253,7 +253,8 @@ export async function kitchenData(kitchenId) {
       [kitchenId, since],
     ),
     db.query(
-      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.pickup_confirmed AS "pickupConfirmed",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt"
+      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.pickup_confirmed AS "pickupConfirmed",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
+         EXISTS(SELECT 1 FROM kitchen_reservation_events e WHERE e.order_id=r.id AND e.action='manual_add') AS "manualAdded"
          FROM orders r JOIN order_items i ON i.order_id=r.id JOIN users u ON u.id=r.user_id JOIN offers o ON o.id=i.offer_id
          WHERE r.kitchen_id=$1 AND o.kitchen_id=$1 AND o.offer_date >= $2 AND o.offer_date < date($2, '+14 days')
          ORDER BY o.offer_date,o.delivery_time,u.name,r.created_at`,
@@ -338,11 +339,6 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
       )
     ).rows[0];
     if (!offer) fail("Menú no encontrado.", 404);
-    if (
-      Date.now() >
-      new Date(`${offer.date}T${offer.pickupUntil}:00-05:00`).getTime()
-    )
-      fail("El recojo de este menú ya terminó.", 409);
     const student = (
       await db.query("SELECT id FROM users WHERE id=$1 AND role='consumer'", [
         studentId,
@@ -423,7 +419,7 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
   return transaction(async (db) => {
     const order = (
       await db.query(
-        `SELECT id,status,fulfillment_status AS "fulfillmentStatus",pickup_confirmed AS "pickupConfirmed",offer_date AS date,pickup_until AS "pickupUntil" FROM orders WHERE id=$1 AND kitchen_id=$2`,
+        `SELECT id,status,fulfillment_status AS "fulfillmentStatus",pickup_confirmed AS "pickupConfirmed",offer_date AS date,pickup_until AS "pickupUntil",created_at AS "createdAt" FROM orders WHERE id=$1 AND kitchen_id=$2`,
         [orderId, kitchenId],
       )
     ).rows[0];
@@ -452,6 +448,15 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
       if (action === "cancel" && order.pickupConfirmed)
         fail(
           "Esta persona confirmó que vendría. Usa «Sin entregar» si aún no recibió su comida.",
+          409,
+        );
+      if (
+        action === "cancel" &&
+        new Date(order.createdAt).getTime() >
+          new Date(`${order.date}T${order.pickupUntil}:00-05:00`).getTime()
+      )
+        fail(
+          "Una reserva extraordinaria posterior al recojo no se puede marcar como ausencia.",
           409,
         );
       const fulfillment =

@@ -73,6 +73,7 @@ type KitchenReservation = {
   pickupConfirmed: boolean;
   paymentRecorded: string | null;
   createdAt: string;
+  manualAdded: boolean;
 };
 type StatOffer = {
   id: string;
@@ -752,10 +753,11 @@ function KitchenReservationPanel({
       setBusyOrder("");
     }
   }
-  const pickupEnded =
-    Date.now() >=
-    new Date(`${offer.date}T${offer.pickupUntil}:00-05:00`).getTime();
-  const canAdd = !pickupEnded && offer.reservedCount < offer.capacity;
+  const pickupEndTime = new Date(
+    `${offer.date}T${offer.pickupUntil}:00-05:00`,
+  ).getTime();
+  const pickupEnded = Date.now() >= pickupEndTime;
+  const canAdd = offer.reservedCount < offer.capacity;
   return (
     <section className="km-reservations" aria-label="Gestión de reservas">
       <div className="km-reservations-head">
@@ -808,6 +810,18 @@ function KitchenReservationPanel({
                     {item.quantity === 1 ? "porción" : "porciones"} ·{" "}
                     {item.code}
                   </small>
+                  <small>
+                    {item.manualAdded ? "Alta manual" : "Reservada"} ·{" "}
+                    {new Intl.DateTimeFormat("es-PE", {
+                      timeZone: "America/Lima",
+                      day: "numeric",
+                      month: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })
+                      .format(new Date(item.createdAt))
+                      .replace(/([ap])\.\s*m\./gi, "$1.m.")}
+                  </small>
                 </div>
                 <div className="km-reservation-manage">
                   <span className="km-reservation-state">{state}</span>
@@ -846,7 +860,8 @@ function KitchenReservationPanel({
                       )}
                     {item.fulfillmentStatus === "pending" &&
                       !item.pickupConfirmed &&
-                      pickupEnded && (
+                      pickupEnded &&
+                      new Date(item.createdAt).getTime() <= pickupEndTime && (
                         <Button
                           variant="quiet"
                           disabled={!!busyOrder}
@@ -911,7 +926,8 @@ function KitchenReservationPanel({
           <h3>Añadir estudiante</h3>
           <p>
             Solo aparecen cuentas sin reserva en este menú. Se añade una porción
-            y se descuenta del cupo.
+            y se descuenta del cupo. También puedes registrar una reserva
+            extraordinaria después de la hora; quedará anotada su fecha y hora.
           </p>
         </div>
         {canAdd ? (
@@ -961,8 +977,7 @@ function KitchenReservationPanel({
           </>
         ) : (
           <p className="km-hint">
-            Ya no se pueden añadir reservas: el cupo se agotó o terminó el
-            recojo.
+            No se pueden añadir más reservas: el cupo se agotó.
           </p>
         )}
       </div>

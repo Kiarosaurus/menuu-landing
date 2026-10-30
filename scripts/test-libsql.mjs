@@ -385,7 +385,7 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         /Espera hasta que termine/,
       );
       await db.query(
-        "UPDATE orders SET offer_date='2020-01-01',pickup_until='13:10' WHERE id=$1",
+        "UPDATE orders SET offer_date='2020-01-01',pickup_until='13:10',created_at='2020-01-01T12:00:00Z' WHERE id=$1",
         [first[0].id],
       );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
@@ -407,6 +407,38 @@ if (!process.env.MENUU_TEST_DB_PATH) {
           (order) => order.id === first[0].id,
         ).fulfillmentStatus,
         "pending",
+      );
+      await db.query(
+        "UPDATE offers SET offer_date='2020-01-01',capacity=3 WHERE id=$1",
+        [offerId],
+      );
+      const extraordinary = await addKitchenReservation(
+        "test-kitchen",
+        "kitchen-actor",
+        { offerId, studentId: consumers[1].id, quantity: 1 },
+      );
+      const extraordinaryOrder = (await getOrders(consumers[1].id)).find(
+        (order) => order.id === extraordinary.orderId,
+      );
+      assert.ok(
+        new Date(extraordinaryOrder.createdAt).getTime() >
+          new Date("2020-01-01T13:10:00-05:00").getTime(),
+      );
+      assert.equal(
+        (
+          await db.query(
+            "SELECT action FROM kitchen_reservation_events WHERE order_id=$1",
+            [extraordinary.orderId],
+          )
+        ).rows[0].action,
+        "manual_add",
+      );
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: extraordinary.orderId,
+          action: "cancel",
+        }),
+        /extraordinaria posterior al recojo/,
       );
     } finally {
       await new Promise((resolve) => server.close(resolve));
