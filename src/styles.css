@@ -1202,6 +1202,10 @@ p {
   background: white;
   box-shadow: var(--shadow-card);
 }
+.kitchen-picker-options {
+  left: 0;
+  right: auto;
+}
 .kitchen-picker-options button,
 .pickup-picker-options button {
   display: flex;
@@ -3521,8 +3525,6 @@ p {
     height: 23px;
   }
   .kitchen-picker-options {
-    left: 0;
-    right: auto;
     width: min(310px, calc(100vw - 40px));
     max-width: none;
     max-height: min(320px, 48dvh);
