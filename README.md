@@ -14,12 +14,12 @@ npm run dev
 
 Abre [http://127.0.0.1:5174/#inicio](http://127.0.0.1:5174/#inicio). Sin `TURSO_DATABASE_URL`, los datos se guardan en `local.db` dentro de este proyecto. `npm run dev` aplica el esquema y no crea usuarios, cocinas ni ofertas ficticias. La base local anterior de PostgreSQL quedó archivada; la cuenta de estudiante que no era de muestra se conservó en `local.db`.
 
-| Comando | Función |
-| --- | --- |
-| `npm run dev` | Sirve API y frontend con Vite. |
-| `npm run build` | Compila el frontend. |
-| `npm start` | Sirve la versión compilada. |
-| `npm run db:migrate` | Aplica las migraciones libSQL pendientes. |
+| Comando               | Función                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `npm run dev`         | Sirve API y frontend con Vite.                                |
+| `npm run build`       | Compila el frontend.                                          |
+| `npm start`           | Sirve la versión compilada.                                   |
+| `npm run db:migrate`  | Aplica las migraciones libSQL pendientes.                     |
 | `npm run test:libsql` | Prueba el esquema y los flujos críticos en una base temporal. |
 
 Las cuentas de estudiante se registran con `@utec.edu.pe`, código numérico único de nueve dígitos y carrera de la lista UTEC. El acceso de cocina requiere una cuenta asignada internamente a su cocina; no existe registro público de cocinas.

@@ -8,15 +8,15 @@
 
 ## Tablas
 
-| Tabla | Contenido |
-| --- | --- |
-| `users`, `sessions` | Estudiantes, cocinas y sesiones persistentes; contraseñas con `scrypt`. |
-| `kitchens`, `kitchen_images` | Perfil y fotos de cocina. |
-| `dishes`, `option_groups`, `option_choices` | Catálogo base y personalización. |
-| `offers`, `offer_option_groups`, `offer_option_choices` | Publicación por día, horario, cupo y variantes. |
-| `orders`, `order_items`, `order_item_choices` | Reserva y copia histórica de platos, opciones y precios. |
-| `booking_requests` | Claves de idempotencia para reintentos. |
-| `order_reviews`, `order_item_reviews` | Notas de 1 a 5 tras entrega habilitada. |
+| Tabla                                                   | Contenido                                                               |
+| ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `users`, `sessions`                                     | Estudiantes, cocinas y sesiones persistentes; contraseñas con `scrypt`. |
+| `kitchens`, `kitchen_images`                            | Perfil y fotos de cocina.                                               |
+| `dishes`, `option_groups`, `option_choices`             | Catálogo base y personalización.                                        |
+| `offers`, `offer_option_groups`, `offer_option_choices` | Publicación por día, horario, cupo y variantes.                         |
+| `orders`, `order_items`, `order_item_choices`           | Reserva y copia histórica de platos, opciones y precios.                |
+| `booking_requests`                                      | Claves de idempotencia para reintentos.                                 |
+| `order_reviews`, `order_item_reviews`                   | Notas de 1 a 5 tras entrega habilitada.                                 |
 
 Los importes se guardan como céntimos enteros. Fechas de día se guardan como `YYYY-MM-DD`, horarios de Lima como `HH:MM` y momentos absolutos como ISO 8601 UTC. Así se comparan cierres de reserva sin depender de la zona horaria del servidor. Los booleanos se guardan como enteros 0/1 y se convierten al leerlos.
 
