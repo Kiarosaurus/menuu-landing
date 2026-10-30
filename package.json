@@ -1,26 +1,50 @@
 {
   "name": "menuu-consumidores",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.mjs --dev",
     "build": "tsc -b && vite build",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
-    "test:libsql": "node scripts/test-libsql.mjs"
+    "test:libsql": "node --env-file-if-exists=.env scripts/test-libsql.mjs",
+    "lint": "eslint . --ignore-pattern dist",
+    "lint:fix": "eslint . --ignore-pattern dist --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
-    "lucide-react": "^0.468.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "lucide-react": "^1.31.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.7.3",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "typescript": "5.9.3",
     "vite": "^6.0.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
   }
 }
