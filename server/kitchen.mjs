@@ -253,7 +253,7 @@ export async function kitchenData(kitchenId) {
       [kitchenId, since],
     ),
     db.query(
-      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.pickup_confirmed AS "pickupConfirmed",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
+      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
          EXISTS(SELECT 1 FROM kitchen_reservation_events e WHERE e.order_id=r.id AND e.action='manual_add') AS "manualAdded"
          FROM orders r JOIN order_items i ON i.order_id=r.id JOIN users u ON u.id=r.user_id JOIN offers o ON o.id=i.offer_id
          WHERE r.kitchen_id=$1 AND o.kitchen_id=$1 AND o.offer_date >= $2 AND o.offer_date < date($2, '+14 days')
@@ -411,15 +411,12 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
 export async function updateKitchenReservation(kitchenId, actorId, data) {
   const orderId = typeof data?.orderId === "string" ? data.orderId : "";
   const action = data?.action;
-  if (
-    !orderId ||
-    !["confirm", "deliver", "cancel", "reset", "payment"].includes(action)
-  )
+  if (!orderId || !["deliver", "cancel", "reset", "payment"].includes(action))
     fail("Cambio de reserva inválido.");
   return transaction(async (db) => {
     const order = (
       await db.query(
-        `SELECT id,status,fulfillment_status AS "fulfillmentStatus",pickup_confirmed AS "pickupConfirmed",offer_date AS date,pickup_until AS "pickupUntil",created_at AS "createdAt" FROM orders WHERE id=$1 AND kitchen_id=$2`,
+        `SELECT id,status,fulfillment_status AS "fulfillmentStatus",offer_date AS date,pickup_until AS "pickupUntil",created_at AS "createdAt" FROM orders WHERE id=$1 AND kitchen_id=$2`,
         [orderId, kitchenId],
       )
     ).rows[0];
@@ -443,11 +440,6 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
       )
         fail(
           "Espera hasta que termine la ventana de recojo para marcar ausencia.",
-          409,
-        );
-      if (action === "cancel" && order.pickupConfirmed)
-        fail(
-          "Esta persona confirmó que vendría. Usa «Sin entregar» si aún no recibió su comida.",
           409,
         );
       if (
@@ -499,15 +491,9 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
             );
         }
       }
-      const confirmed =
-        action === "confirm" || action === "deliver"
-          ? 1
-          : action === "reset"
-            ? 0
-            : order.pickupConfirmed;
       await db.query(
-        "UPDATE orders SET fulfillment_status=$3,pickup_confirmed=$4,review_enabled=CASE WHEN $3='delivered' THEN review_enabled ELSE 0 END WHERE id=$1 AND kitchen_id=$2",
-        [orderId, kitchenId, fulfillment, confirmed],
+        "UPDATE orders SET fulfillment_status=$3,pickup_confirmed=0,review_enabled=CASE WHEN $3='delivered' THEN review_enabled ELSE 0 END WHERE id=$1 AND kitchen_id=$2",
+        [orderId, kitchenId, fulfillment],
       );
       detail = fulfillment;
     }

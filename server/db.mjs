@@ -10,7 +10,6 @@ const booleanColumns = new Set([
   "hasCustomizationOverride",
   "bookingAllowed",
   "reviewEnabled",
-  "pickupConfirmed",
   "manualAdded",
 ]);
 

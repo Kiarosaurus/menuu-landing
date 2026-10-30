@@ -1044,11 +1044,6 @@
   border-radius: 16px;
   background: linear-gradient(90deg, var(--reservation-bg), #fff 76%);
 }
-.km-reservation-confirmed {
-  --reservation-accent: var(--color-orange-display);
-  --reservation-bg: var(--color-status-confirmed-bg);
-  --reservation-ink: var(--color-brand);
-}
 .km-reservation-delivered {
   --reservation-accent: var(--color-brand);
   --reservation-bg: var(--color-status-delivered-bg);

@@ -408,10 +408,13 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         ).rows[0].reserved_count,
         2,
       );
-      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
-        orderId: manual.orderId,
-        action: "confirm",
-      });
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: manual.orderId,
+          action: "confirm",
+        }),
+        /Cambio de reserva inválido/,
+      );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
         orderId: manual.orderId,
         action: "payment",
@@ -453,7 +456,7 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         /Espera hasta que termine/,
       );
       await db.query(
-        "UPDATE orders SET offer_date='2020-01-01',pickup_until='13:10',created_at='2020-01-01T12:00:00Z' WHERE id=$1",
+        "UPDATE orders SET offer_date='2020-01-01',pickup_until='13:10',created_at='2020-01-01T12:00:00Z',pickup_confirmed=1 WHERE id=$1",
         [first[0].id],
       );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {

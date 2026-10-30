@@ -70,20 +70,17 @@ type KitchenReservation = {
   quantity: number;
   status: string;
   fulfillmentStatus: "pending" | "delivered" | "no_show";
-  pickupConfirmed: boolean;
   paymentRecorded: string | null;
   createdAt: string;
   manualAdded: boolean;
 };
-type ReservationState = "pending" | "confirmed" | "delivered" | "cancelled";
+type ReservationState = "pending" | "delivered" | "cancelled";
 const reservationState = (item: KitchenReservation): ReservationState =>
   item.status !== "reservado" || item.fulfillmentStatus === "no_show"
     ? "cancelled"
     : item.fulfillmentStatus === "delivered"
       ? "delivered"
-      : item.pickupConfirmed
-        ? "confirmed"
-        : "pending";
+      : "pending";
 type StatOffer = {
   id: string;
   dishId: string;
@@ -824,8 +821,7 @@ function KitchenReservationPanel({
             value={statusFilter}
             options={[
               { value: "all", label: "Todos los estados" },
-              { value: "pending", label: "Sin confirmar" },
-              { value: "confirmed", label: "Confirmó que vendrá" },
+              { value: "pending", label: "Pendientes" },
               { value: "delivered", label: "Entregadas" },
               { value: "cancelled", label: "Canceladas · no vinieron" },
             ]}
@@ -860,9 +856,7 @@ function KitchenReservationPanel({
                   ? "Entregado"
                   : status === "cancelled"
                     ? "Cancelado · no vino"
-                    : status === "confirmed"
-                      ? "Confirmó que vendrá · sin entregar"
-                      : "Sin confirmar";
+                    : "Pendiente";
               return (
                 <article
                   className={`km-reservation km-reservation-${status}`}
@@ -892,22 +886,6 @@ function KitchenReservationPanel({
                   <div className="km-reservation-manage">
                     <span className="km-reservation-state">{state}</span>
                     <div className="km-reservation-actions">
-                      {item.fulfillmentStatus === "pending" &&
-                        !item.pickupConfirmed && (
-                          <Button
-                            variant="secondary"
-                            disabled={!!busyOrder}
-                            onClick={() =>
-                              change(
-                                "/api/kitchen/reservations/update",
-                                { orderId: item.orderId, action: "confirm" },
-                                item.orderId,
-                              )
-                            }
-                          >
-                            Registrar que vendrá
-                          </Button>
-                        )}
                       {item.fulfillmentStatus !== "delivered" &&
                         item.fulfillmentStatus !== "no_show" && (
                           <Button
@@ -925,7 +903,6 @@ function KitchenReservationPanel({
                           </Button>
                         )}
                       {item.fulfillmentStatus === "pending" &&
-                        !item.pickupConfirmed &&
                         pickupEnded &&
                         new Date(item.createdAt).getTime() <= pickupEndTime && (
                           <Button
@@ -942,8 +919,7 @@ function KitchenReservationPanel({
                             Marcar como no vino
                           </Button>
                         )}
-                      {(item.fulfillmentStatus !== "pending" ||
-                        item.pickupConfirmed) && (
+                      {item.fulfillmentStatus !== "pending" && (
                         <Button
                           variant="quiet"
                           disabled={!!busyOrder}
