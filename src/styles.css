@@ -2261,6 +2261,9 @@ p {
 .career-picker-trigger[aria-expanded="true"] > svg:last-child {
   transform: rotate(180deg);
 }
+.career-picker-native {
+  display: none;
+}
 .career-picker-options {
   position: absolute;
   z-index: 12;
@@ -2966,15 +2969,50 @@ p {
   .auth-layout-details .career-picker {
     gap: 7px;
   }
-  .auth-layout-details .career-picker-options {
-    position: relative;
-    top: auto;
-    max-height: min(220px, 36dvh);
-    margin-top: 4px;
-    box-shadow: 0 8px 20px rgb(7 83 56 / 10%);
+  .career-picker-trigger,
+  .career-picker-options {
+    display: none;
   }
-  .career-picker-trigger .career-picker-selected {
+  .career-picker-native {
+    position: relative;
     display: block;
+    min-width: 0;
+  }
+  .career-picker-native select {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+    appearance: none;
+    padding: 11px 70px 11px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-field);
+    background: white;
+    color: var(--color-text);
+    font: 400 16px/1.45 var(--font-body);
+    white-space: normal;
+  }
+  .career-picker-native .career-picker-native-placeholder {
+    color: #657664;
+  }
+  .career-picker-native select[aria-invalid="true"] {
+    border-color: var(--color-error);
+  }
+  .career-picker-native select:focus-visible {
+    outline: 3px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  .career-picker-native-icons {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: translateY(-50%);
+    color: var(--color-brand);
+    pointer-events: none;
+  }
+  .career-picker-native-icons svg:first-child:not(:last-child) {
     color: var(--color-orange-display);
   }
   .auth-layout-details .auth-actions {

@@ -513,6 +513,7 @@ function CareerPicker({
 }) {
   const [open, setOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const mobileSelectRef = useRef<HTMLSelectElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
     if (open) optionRefs.current[Math.max(0, careers.indexOf(value))]?.focus();
@@ -525,6 +526,10 @@ function CareerPicker({
     document.addEventListener("pointerdown", closeOnOutsideTap);
     return () => document.removeEventListener("pointerdown", closeOnOutsideTap);
   }, [open]);
+  useEffect(() => {
+    if (invalid && window.matchMedia("(max-width: 700px)").matches)
+      mobileSelectRef.current?.focus();
+  }, [invalid]);
   const focusOption = (index: number) =>
     optionRefs.current[(index + careers.length) % careers.length]?.focus();
   return (
@@ -575,6 +580,33 @@ function CareerPicker({
         )}
         <ChevronDown size={19} aria-hidden="true" />
       </button>
+      <div className="career-picker-native">
+        <select
+          ref={mobileSelectRef}
+          value={value}
+          className={!value ? "career-picker-native-placeholder" : undefined}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(false);
+          }}
+          aria-labelledby="career-label"
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? "auth-error-toast" : undefined}
+        >
+          <option value="" disabled>
+            Selecciona tu carrera
+          </option>
+          {careers.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+        <span className="career-picker-native-icons" aria-hidden="true">
+          {value && <Check size={18} />}
+          <ChevronDown size={19} />
+        </span>
+      </div>
       {open && (
         <div
           className="career-picker-options"
