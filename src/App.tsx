@@ -1253,6 +1253,7 @@ type FeaturedSlide = {
   kitchen: Kitchen;
   offer: Offering;
   titleLines: [string, string];
+  subtitle: string | null;
   descriptionLines: [string, string];
 };
 
@@ -1322,6 +1323,11 @@ function FeaturedCarousel({
               </span>
             ))}
           </h1>
+          <h3>
+            {slide.subtitle && (
+              <span className="featured-text-line">{slide.subtitle}</span>
+            )}
+          </h3>
           <p>
             {slide.descriptionLines.map((line, lineIndex) => (
               <span className="featured-text-line" key={lineIndex}>
@@ -1540,13 +1546,17 @@ export default function App() {
     .filter((offer) => Boolean(offer.imageUrl))
     .slice(0, 2)
     .flatMap((offer) => {
+      const nameOverflow = offer.name.length > 7;
       const kitchen = kitchens.find((value) => value.id === offer.kitchenId);
       if (!kitchen) return [];
       return [
         {
           kitchen,
           offer,
-          titleLines: ["¿Qué te parece", `${offer.name} esta semana?`],
+          titleLines: nameOverflow
+            ? ["¿Te apetece comer", `sabroso esta semana?`]
+            : ["¿Te apetece", `${offer.name} esta semana?`],
+          subtitle: nameOverflow ? `Plato: ${offer.name}` : null,
           descriptionLines: [
             offer.description || `Un plato de ${kitchen.name}.`,
             "Mira el menú y elige tu día.",

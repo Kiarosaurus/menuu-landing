@@ -3200,6 +3200,7 @@ p {
 }
 .featured-slide-green .welcome-copy h1,
 .featured-slide-green .welcome-copy h1 span,
+.featured-slide-green .welcome-copy h3 span,
 .featured-slide-green .welcome-copy p {
   color: var(--color-background);
 }
@@ -3219,6 +3220,10 @@ p {
 }
 .featured-slide .welcome-copy h1 {
   font-size: clamp(37px, 3.65vw, 49px);
+  max-width: none;
+}
+.featured-slide .welcome-copy h3 {
+  padding-bottom: 20px;
   max-width: none;
 }
 .featured-text-line {
