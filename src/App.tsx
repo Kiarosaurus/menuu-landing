@@ -512,17 +512,30 @@ function CareerPicker({
   triggerRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   useEffect(() => {
     if (open) optionRefs.current[Math.max(0, careers.indexOf(value))]?.focus();
   }, [open, careers, value]);
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideTap = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideTap);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideTap);
+  }, [open]);
   const focusOption = (index: number) =>
     optionRefs.current[(index + careers.length) % careers.length]?.focus();
   return (
     <div
+      ref={pickerRef}
       className="career-picker"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget as Node)
+        )
           setOpen(false);
       }}
     >
@@ -553,6 +566,13 @@ function CareerPicker({
         <span id="career-value" className={value ? "" : "placeholder"}>
           {value || "Selecciona tu carrera"}
         </span>
+        {value && (
+          <Check
+            className="career-picker-selected"
+            size={18}
+            aria-hidden="true"
+          />
+        )}
         <ChevronDown size={19} aria-hidden="true" />
       </button>
       {open && (

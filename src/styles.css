@@ -2255,7 +2255,10 @@ p {
   color: var(--color-brand);
   transition: transform 0.2s ease;
 }
-.career-picker-trigger[aria-expanded="true"] > svg {
+.career-picker-trigger .career-picker-selected {
+  display: none;
+}
+.career-picker-trigger[aria-expanded="true"] > svg:last-child {
   transform: rotate(180deg);
 }
 .career-picker-options {
@@ -2855,7 +2858,11 @@ p {
     margin-bottom: 10px;
   }
   .auth-layout-details .auth-card form {
-    gap: 8px;
+    gap: 20px;
+  }
+  .auth-layout-details .auth-card {
+    min-height: 0;
+    padding-bottom: 24px;
   }
   .auth-details-fields {
     row-gap: 6px;
@@ -2947,6 +2954,36 @@ p {
     padding-inline: 9px;
     gap: 6px;
     font-size: 14px;
+  }
+  .auth-layout-details .auth-details-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .auth-layout-details .auth-details-fields > * {
+    grid-column: 1;
+  }
+  .auth-layout-details .auth-details-fields label,
+  .auth-layout-details .career-picker {
+    gap: 7px;
+  }
+  .auth-layout-details .career-picker-options {
+    position: relative;
+    top: auto;
+    max-height: min(220px, 36dvh);
+    margin-top: 4px;
+    box-shadow: 0 8px 20px rgb(7 83 56 / 10%);
+  }
+  .career-picker-trigger .career-picker-selected {
+    display: block;
+    color: var(--color-orange-display);
+  }
+  .auth-layout-details .auth-actions {
+    margin-top: 0;
+    padding-top: 4px;
+  }
+  .auth-layout-details .auth-photo {
+    min-height: 280px;
+    height: 280px;
   }
   .app-shell:has(.auth-page) {
     background-size: 260px auto;
