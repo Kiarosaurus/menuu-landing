@@ -1,13 +1,12 @@
-import { createServer } from 'node:http';
+﻿import { createServer } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deliveryMoment } from './catalog.mjs';
 import { careers } from './careers.mjs';
-import { closePool } from './db.mjs';
+import { closeDb } from './db.mjs';
 import { createBooking, findUserByEmail, getCatalog, getOrders, insertSession, insertUser, removeSession, submitReview, updateConsumerProfile, userFromSession } from './repository.mjs';
-import { seedDemo } from './seed.mjs';
 import { hashPassword, publicUser, verifyPassword } from './store.mjs';
 import { kitchenData, kitchenImage, saveDish, saveKitchenImage, saveOffer, updateKitchen } from './kitchen.mjs';
 import { migrate } from '../scripts/migrate.mjs';
@@ -15,9 +14,12 @@ import { migrate } from '../scripts/migrate.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const isDev = process.argv.includes('--dev');
 const port = Number(process.env.PORT || (isDev ? 5173 : 4173));
-await migrate();
-if (process.argv.includes('--seed-demo')) await seedDemo();
-const vite = isDev ? await (await import('vite')).createServer({ root, server: { middlewareMode: true }, appType: 'spa' }) : null;
+let migrationPromise;
+let vite = null;
+function ensureMigrated() {
+  if (!migrationPromise) migrationPromise = migrate().catch(error => { migrationPromise = undefined; throw error; });
+  return migrationPromise;
+}
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 
 function json(res, status, value) {
@@ -28,6 +30,15 @@ function json(res, status, value) {
 function error(res, status, message) { json(res, status, { error: message }); }
 
 async function body(req) {
+  let parsed;
+  try { parsed = req.body; }
+  catch { throw Object.assign(new Error('Datos inválidos.'), { status: 400 }); }
+  if (parsed !== undefined) {
+    const raw = typeof parsed === 'string' ? parsed : JSON.stringify(parsed ?? {});
+    if (Buffer.byteLength(raw) > 32_000) throw Object.assign(new Error('Solicitud demasiado grande.'), { status: 413 });
+    try { return typeof parsed === 'string' ? JSON.parse(parsed || '{}') : parsed ?? {}; }
+    catch { throw Object.assign(new Error('Datos inválidos.'), { status: 400 }); }
+  }
   let raw = '';
   for await (const chunk of req) {
     raw += chunk;
@@ -86,6 +97,10 @@ async function handleApi(req, res, url) {
     if (req.method !== 'POST' || !sameOrigin(req)) return error(res, 403, 'Solicitud no permitida.');
     if (url.pathname === '/api/kitchen/photo') {
       const mime = String(req.headers['content-type'] || '').split(';')[0];
+      if (Buffer.isBuffer(req.body)) {
+        if (req.body.length > 2_000_000) return error(res, 413, 'La imagen supera 2 MB.');
+        return json(res, 200, { url: await saveKitchenImage(user.kitchenId, req.body, mime, url.searchParams.get('scope') !== 'dish') });
+      }
       const chunks = []; let size = 0;
       for await (const chunk of req) { size += chunk.length; if (size > 2_000_000) return error(res, 413, 'La imagen supera 2 MB.'); chunks.push(chunk); }
       return json(res, 200, { url: await saveKitchenImage(user.kitchenId, Buffer.concat(chunks), mime, url.searchParams.get('scope') !== 'dish') });
@@ -120,7 +135,7 @@ async function handleApi(req, res, url) {
     if (password.length < 5 || password.length > 128) return error(res, 400, 'La contraseña debe tener entre 5 y 128 caracteres.');
     if (await findUserByEmail(email)) return error(res, 409, 'Ese correo ya tiene una cuenta.');
     const user = { id: randomUUID(), name, email, role: 'consumer', studentCode, career, birthDate, passwordHash: hashPassword(password) };
-    try { await insertUser(user); } catch (cause) { if (cause.code === '23505') return error(res, 409, cause.constraint === 'users_student_code_unique' ? 'Ese código de estudiante ya está registrado.' : 'Ese correo ya tiene una cuenta.'); throw cause; }
+    try { await insertUser(user); } catch (cause) { if (String(cause.code).includes('CONSTRAINT_UNIQUE')) return error(res, 409, /student_code/i.test(cause.message) ? 'Ese código de estudiante ya está registrado.' : 'Ese correo ya tiene una cuenta.'); throw cause; }
     const token = randomBytes(32).toString('hex');
     await insertSession(token, user.id);
     res.setHeader('Set-Cookie', sessionCookie(req, token, 7 * 86400));
@@ -161,7 +176,7 @@ async function handleApi(req, res, url) {
     if (!validBirthDate(birthDate)) return error(res, 400, 'Escribe una fecha de nacimiento válida que no sea futura.');
     let updated;
     try { updated = await updateConsumerProfile(user.id, { name, studentCode, career, birthDate }); }
-    catch (cause) { if (cause.code === '23505' && cause.constraint === 'users_student_code_unique') return error(res, 409, 'Ese código de estudiante ya está registrado.'); throw cause; }
+    catch (cause) { if (String(cause.code).includes('CONSTRAINT_UNIQUE') && /student_code/i.test(cause.message)) return error(res, 409, 'Ese código de estudiante ya está registrado.'); throw cause; }
     if (!updated) return error(res, 404, 'Cuenta no encontrada.');
     return json(res, 200, { user: publicUser(await userFromSession(token)) });
   }
@@ -194,16 +209,21 @@ async function serveStatic(req, res, pathname) {
   res.end(content);
 }
 
-createServer(async (req, res) => {
+export async function handleRequest(req, res, apiUrl) {
   try {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+    const url = apiUrl || new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (url.pathname.startsWith('/api/')) { await ensureMigrated(); return await handleApi(req, res, url); }
     if (vite) return vite.middlewares(req, res, () => error(res, 404, 'Página no encontrada.'));
     return await serveStatic(req, res, url.pathname);
   } catch (cause) {
     console.error(cause);
     if (!res.headersSent) error(res, cause.status || 500, cause.status ? cause.message : 'No pudimos completar la solicitud.');
   }
-}).listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Menúu consumidores: http://127.0.0.1:${port}`));
+}
 
-process.on('SIGTERM', () => { closePool().finally(() => process.exit(0)); });
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  await ensureMigrated();
+  if (isDev) vite = await (await import('vite')).createServer({ root, server: { middlewareMode: true }, appType: 'spa' });
+  createServer(handleRequest).listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Menúu consumidores: http://127.0.0.1:${port}`));
+  process.on('SIGTERM', () => { closeDb().finally(() => process.exit(0)); });
+}

@@ -72,7 +72,7 @@ p { color: var(--color-muted); }
 .section-link svg { transition: transform .24s ease; }
 .section-link:hover svg, .section-link:focus-visible svg { transform: translateX(4px); }
 .empty-state { border: 1px dashed #BAC9AB; border-radius: var(--radius-card); background: rgb(255 255 255 / 65%); min-height: 252px; padding: 30px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.empty-icon { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: #EAF3D1; color: var(--color-brand); margin-bottom: 16px; }
+.empty-icon { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--color-orange-soft); color: var(--color-brand); margin-bottom: 16px; }
 .empty-state h3 { font-size: 26px; }
 .empty-state p { max-width: 45ch; margin-top: 7px; font-size: 15px; }
 .empty-state .button { margin-top: 21px; }

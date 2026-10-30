@@ -4,18 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node --env-file-if-exists=.env server/index.mjs --dev --seed-demo",
+    "dev": "node --env-file-if-exists=.env server/index.mjs --dev",
     "build": "tsc -b && vite build",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
-    "db:seed:demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
-    "db:import-json": "node --env-file-if-exists=.env scripts/import-json.mjs",
-    "test:smoke": "node --env-file-if-exists=.env scripts/smoke.mjs",
-    "test:kitchen": "node --env-file-if-exists=.env scripts/kitchen-smoke.mjs"
+    "test:libsql": "node scripts/test-libsql.mjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "lucide-react": "^0.468.0",
-    "pg": "^8.23.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -1,41 +1,33 @@
 # Arquitectura de datos de Menúu consumidores
 
-## Estado implementado
+## Motor y entornos
 
-La app usa PostgreSQL como fuente de verdad. El esquema está en `server/migrations/0001_initial.sql`; `scripts/migrate.mjs` aplica migraciones una sola vez con bloqueo entre procesos. `server/repository.mjs` consulta catálogo, usuarios, sesiones y pedidos. La reserva valida opciones, horario y cupos, actualiza el cupo y guarda pedido e ítems dentro de una transacción PostgreSQL.
+`server/db.mjs` usa `@libsql/client`. En local abre `file:local.db` si no se define `TURSO_DATABASE_URL`; en Vercel exige una URL Turso remota y `TURSO_AUTH_TOKEN`. La landing utiliza otra base Turso para su lista de espera. Ninguna consulta de consumidores depende de la tabla de inscripciones.
+
+`scripts/migrate.mjs` aplica los archivos de `server/migrations/` dentro de transacciones de escritura y registra cada versión en `schema_migrations`. El esquema actual está consolidado en `0001_initial.sql`. Los archivos de `docs/postgres-migrations/` son historia de la implementación anterior; no se ejecutan. El arranque no agrega datos ficticios.
+
+## Tablas
 
 | Tabla | Contenido |
 | --- | --- |
-| `kitchens` | Cocinas y datos públicos. |
-| `users` | Estudiantes y cuentas de cocina, correo único, hash de contraseña, datos académicos y fecha de nacimiento opcional. |
-| `dishes` | Plato, cocina y precio base en céntimos. |
-| `option_groups`, `option_choices` | Selección única o múltiple, obligatoriedad, límite y extras. |
-| `offers` | Plato y fecha, horario, capacidad y cantidad reservada. |
-| `orders`, `order_items`, `order_item_choices` | Reserva, platos, opciones, comentarios y copia histórica de nombres y precios. |
-| `sessions` | Sesiones persistentes con hash SHA-256 del token y vencimiento. |
-| `booking_requests` | Claves de solicitud para evitar reservas duplicadas al reintentar. |
-| `order_reviews`, `order_item_reviews` | Puntuación de 1 a 5 de la cocina y de cada plato de un pedido entregado. |
+| `users`, `sessions` | Estudiantes, cocinas y sesiones persistentes; contraseñas con `scrypt`. |
+| `kitchens`, `kitchen_images` | Perfil y fotos de cocina. |
+| `dishes`, `option_groups`, `option_choices` | Catálogo base y personalización. |
+| `offers`, `offer_option_groups`, `offer_option_choices` | Publicación por día, horario, cupo y variantes. |
+| `orders`, `order_items`, `order_item_choices` | Reserva y copia histórica de platos, opciones y precios. |
+| `booking_requests` | Claves de idempotencia para reintentos. |
+| `order_reviews`, `order_item_reviews` | Notas de 1 a 5 tras entrega habilitada. |
 
-Los importes se guardan como céntimos enteros. La actualización de `offers.reserved_count` exige que no se supere `capacity` y que el cierre aún no haya pasado. El pedido y sus opciones se insertan en la misma transacción; si algo falla, el cupo no queda descontado. Las claves foráneas y restricciones protegen las relaciones y valores básicos.
+Los importes se guardan como céntimos enteros. Fechas de día se guardan como `YYYY-MM-DD`, horarios de Lima como `HH:MM` y momentos absolutos como ISO 8601 UTC. Así se comparan cierres de reserva sin depender de la zona horaria del servidor. Los booleanos se guardan como enteros 0/1 y se convierten al leerlos.
 
-## Datos anteriores y arranque
+## Reserva y concurrencia
 
-`scripts/import-json.mjs` importa el antiguo `server/data/db.json`. No borra el archivo ni lo usa después. Importa hashes de contraseña, platos y reservas, incluidas opciones y precios originales. Si se repite, no duplica reservas y no sustituye cuentas o menús ya presentes. Debe ejecutarse antes de abrir tráfico real.
+`createBooking` abre una transacción libSQL de tipo `write` antes de leer las ofertas. Verifica el cupo y el cierre, valida opciones y precios, actualiza cada oferta con una condición de capacidad y guarda pedidos e ítems. Una falla revierte la operación completa. Las transacciones de escritura se serializan dentro del proceso y se reintenta de forma acotada si SQLite devuelve `SQLITE_BUSY`; entre instancias remotas la propia base coordina las escrituras. Dos solicitudes simultáneas sobre la última porción no pueden confirmar ambas. `booking_requests` devuelve el resultado previo si se reenvía la misma solicitud con la misma clave.
 
-`scripts/seed-demo.mjs` crea tres cocinas, sus cuentas de muestra y ofertas de esta semana y la siguiente. `0003_kitchen_logos.sql` añade el logo público de cada cocina. El arranque `npm run dev` también aplica las migraciones y esa semilla; `npm start` aplica migraciones sin datos de prueba. Las ofertas reales deberán ser administradas por la futura app de cocinas.
+Las cuentas públicas solo pueden registrarse con `@utec.edu.pe`, carrera válida y código de estudiante único de nueve dígitos. La sesión y el rol se verifican en el servidor para cada acción protegida. Las escrituras de cocina filtran por el `kitchen_id` asociado al usuario. Las imágenes PNG/JPG subidas por cocinas se guardan como BLOB y se sirven con MIME comprobado.
 
-El catálogo suma `order_items.quantity` por plato y cocina solo en pedidos marcados como entregados. No guarda cifras de ventas de ejemplo. Si todavía no hay entregas, Inicio presenta platos y cocinas para descubrir sin llamarlos «más vendidos». La puntuación de cada cocina se calcula con `order_reviews.kitchen_rating` de entregas confirmadas; sin reseñas se devuelve `null` y se muestra «Aún sin puntuación».
+## Entrega, reseñas y trabajo pendiente
 
-`0005_delivery_reviews.sql` añade `orders.fulfillment_status` y `orders.review_enabled`, ambos independientes. Una reseña solo puede crearse por el propietario del pedido si `fulfillment_status='delivered'`, `review_enabled=true` y pasó la hora de entrega. La API exige una nota para cada ítem y una para la cocina, con una sola reseña por pedido. Un pedido `pending` no habilita reseña ni implica ausencia. Solo un `no_show` explícito restringe las reservas futuras del estudiante; corregir ese estado revierte la restricción.
+Los pedidos empiezan con `fulfillment_status='pending'` y `review_enabled=0`. Una reseña requiere estado `delivered`, permiso explícito, hora de entrega cumplida y una nota para cada plato; se admite una vez por pedido. Solo `no_show` restringe futuras reservas. La interfaz de superusuario para confirmar entrega o ausencia, habilitar reseñas y auditar cambios todavía no está implementada.
 
-**Pendiente para la futura app de cocinas:** añadir usuarios superusuarios con asignaciones explícitas a una o más cocinas. Su interfaz mostrará únicamente los pedidos de las cocinas asignadas y permitirá, por pedido, confirmar la entrega o registrar que no se recogió y habilitar la reseña. El backend deberá comprobar esa asignación en cada lectura y actualización, registrar quién efectuó el cambio y cuándo, y no conceder acceso por el simple hecho de tener una cuenta de cocina. No se construirá una app separada para delivery en esta etapa. Hasta contar con esa interfaz, los cambios de estado y habilitación solo pueden hacerse como operaciones internas de desarrollo o administración en PostgreSQL; la app de consumidores no ofrece esos controles.
-
-## Landing
-
-La landing conserva su lista de espera en Cloudflare D1 (`menuu-landing/db/schema.ts`). D1 es SQL basado en SQLite y esa tabla no interviene en reservas ni cupos. Integrar la lista de espera con cuentas reales requerirá una importación o sincronización explícita; no hay dos fuentes de verdad para los pedidos.
-
-## Trabajo posterior
-
-La gestión de platos y ofertas por las cocinas, la verificación de propiedad del correo UTEC y el procesamiento de pago no forman parte de esta migración. Antes de publicar reservas reales, configurar copias de seguridad, supervisión y un proveedor PostgreSQL persistente. El cliente envía una clave de solicitud con cada reserva; la API devuelve el resultado guardado si recibe de nuevo la misma solicitud.
-
-Referencias: [transacciones de node-postgres](https://node-postgres.com/features/transactions), [restricciones de PostgreSQL](https://www.postgresql.org/docs/current/ddl-constraints.html), [actualizaciones condicionadas](https://www.postgresql.org/docs/current/sql-update.html) y [Cloudflare D1](https://developers.cloudflare.com/d1/).
+Antes de atender reservas reales, configura copias de seguridad, supervisión y el token de Turso en el entorno de producción. La verificación automatizada `npm run test:libsql` usa una base temporal: comprueba migraciones, catálogo, registro, sesión, cupos concurrentes, idempotencia, estadísticas, imágenes y reseñas.

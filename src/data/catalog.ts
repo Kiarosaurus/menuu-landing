@@ -27,7 +27,7 @@ export type Offering = {
   imageAlt: string;
   customization: CustomizationGroup[];
 };
-export type Kitchen = { id: string; name: string; description: string; imageUrl: string; logoUrl: string; testAccount: boolean; rating: number | null; ratingCount: number };
+export type Kitchen = { id: string; name: string; description: string; imageUrl: string; logoUrl: string; rating: number | null; ratingCount: number };
 export type User = { id: string; name: string; email: string; role: 'consumer' | 'kitchen'; kitchenId?: string; studentCode: string | null; career: string | null; birthDate: string | null; bookingAllowed: boolean };
 export type Selection = { groupId: string; title: string; choiceId: string; label: string; priceSoles: number };
 export type CartItem = { key: string; offeringId: string; choices: SelectedChoices; comment: string; quantity: number };
