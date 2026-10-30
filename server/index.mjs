@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import { deliveryMoment } from "./catalog.mjs";
 import { careers } from "./careers.mjs";
 import { closeDb } from "./db.mjs";
+import { expireOverdueReservations } from "./reservation-lifecycle.mjs";
 import {
+  cancelOrder,
   createBooking,
   findUserByEmail,
   getCatalog,
@@ -210,8 +212,10 @@ async function handleApi(req, res, url) {
     if (!user || user.role !== "kitchen" || !user.kitchenId)
       return error(res, 401, "Inicia sesión como cocina.");
 
-    if (req.method === "GET" && url.pathname === "/api/kitchen/data")
+    if (req.method === "GET" && url.pathname === "/api/kitchen/data") {
+      await expireOverdueReservations();
       return json(res, 200, await kitchenData(user.kitchenId));
+    }
     const candidatesMatch =
       /^\/api\/kitchen\/offers\/([a-zA-Z0-9-]+)\/students$/.exec(url.pathname);
     if (req.method === "GET" && candidatesMatch)
@@ -293,6 +297,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {
+    await expireOverdueReservations();
     const user = await userFromSession(sessionToken(req));
     const [catalog, orders] = await Promise.all([
       getCatalog(),
@@ -495,6 +500,7 @@ async function handleApi(req, res, url) {
 
     if (!user || user.role !== "consumer")
       return error(res, 401, "Inicia sesión con tu cuenta de estudiante.");
+    await expireOverdueReservations();
     const created = await createBooking(
       user.id,
       data.items,
@@ -502,6 +508,16 @@ async function handleApi(req, res, url) {
     );
 
     return json(res, 201, { orders: created });
+  }
+  const cancelMatch = /^\/api\/orders\/([a-zA-Z0-9-]+)\/cancel$/.exec(
+    url.pathname,
+  );
+  if (cancelMatch) {
+    const user = await userFromSession(sessionToken(req));
+    if (!user || user.role !== "consumer")
+      return error(res, 401, "Inicia sesión con tu cuenta de estudiante.");
+    await expireOverdueReservations();
+    return json(res, 200, await cancelOrder(user.id, cancelMatch[1]));
   }
   const reviewMatch = /^\/api\/orders\/([a-zA-Z0-9-]+)\/review$/.exec(
     url.pathname,

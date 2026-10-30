@@ -238,13 +238,6 @@ const limaToday = () => {
     parts.find((part) => part.type === type)?.value || "";
   return `${value("year")}-${value("month")}-${value("day")}`;
 };
-const limaTime = () =>
-  new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Lima",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date());
 const offerPrice = (offer: Offering, choices: SelectedChoices) =>
   offer.priceSoles +
   offer.customization.reduce(
@@ -421,11 +414,7 @@ function OfferingCard({
   onChoose: (offer: Offering) => void;
   onKitchen: (id: string) => void;
 }) {
-  const today = limaToday();
-  const soldOutBeforePickup =
-    offer.remaining <= 0 &&
-    (offer.date > today ||
-      (offer.date === today && offer.pickupUntil > limaTime()));
+  const soldOut = offer.remaining <= 0;
   return (
     <article className="offer-card">
       <div className="offer-photo">
@@ -470,8 +459,18 @@ function OfferingCard({
           <div>
             <BrandClockIcon size={17} />
             <span>
-              <strong>Reserva hasta</strong>
-              <small>
+              <strong>
+                {!offer.bookable && offer.remaining < 1
+                  ? "Reserva cerrada"
+                  : "Reserva hasta"}
+              </strong>
+              <small
+                className={
+                  !offer.bookable && offer.remaining < 1
+                    ? "offer-deadline-ended"
+                    : undefined
+                }
+              >
                 {capitalizeFirst(bookingDeadlineLabel(offer.bookingDeadline))}
               </small>
             </span>
@@ -489,13 +488,15 @@ function OfferingCard({
           </Button>
         </div>
         <span
-          className={`offer-stock${soldOutBeforePickup ? " offer-stock-soldout" : ""}`}
+          className={`offer-stock${soldOut ? " offer-stock-soldout" : ""}`}
         >
-          {soldOutBeforePickup
+          {soldOut
             ? "¡Sold out!"
             : offer.bookable
               ? `${offer.remaining} ${offer.remaining === 1 ? "porción disponible" : "porciones disponibles"}`
-              : ""}
+              : offer.remaining > 0
+                ? "¡Ve al punto de encuentro! ¡Venta presencial!"
+                : ""}
         </span>
       </div>
     </article>
@@ -2774,6 +2775,8 @@ function OrderCard({
   const [foodRatings, setFoodRatings] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const afterDelivery =
     new Date(`${order.date}T${order.deliveryTime}:00-05:00`) <= new Date();
   const canReview =
@@ -2792,6 +2795,24 @@ function OrderCard({
             ? "Cancelado"
             : "Reservado";
   const settled = order.status !== "reservado";
+  const canCancel = order.status === "reservado" && !afterDelivery;
+  async function cancelReservation() {
+    setCancelBusy(true);
+    setError("");
+    try {
+      await api(`/api/orders/${order.id}/cancel`, {});
+      await onReviewed();
+      setCancelOpen(false);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No pudimos cancelar tu reserva.",
+      );
+    } finally {
+      setCancelBusy(false);
+    }
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -2860,6 +2881,43 @@ function OrderCard({
         <span>{order.payment}</span>
         <strong>Total {money(order.totalSoles)}</strong>
       </div>
+      {canCancel && (
+        <div className="order-cancel">
+          {cancelOpen ? (
+            <div className="order-cancel-confirm">
+              <p>
+                ¿Cancelar esta reserva? Se liberarán las porciones para otros
+                estudiantes.
+              </p>
+              <div>
+                <Button
+                  variant="secondary"
+                  onClick={() => setCancelOpen(false)}
+                  disabled={cancelBusy}
+                >
+                  Volver
+                </Button>
+                <Button onClick={cancelReservation} disabled={cancelBusy}>
+                  {cancelBusy ? "Cancelando…" : "Sí, cancelar reserva"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="order-cancel-link"
+              onClick={() => setCancelOpen(true)}
+            >
+              Cancelar reserva
+            </button>
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
       {order.kitchenRating !== null && (
         <p className="review-saved">
           <Star size={17} fill="currentColor" aria-hidden="true" /> Calificaste
@@ -2873,7 +2931,7 @@ function OrderCard({
       )}
       {order.status === "no_se_presento" && (
         <p className="review-note">
-          Delivery registró que no se recogió este pedido.
+          No se registró el recojo dentro de los 15 minutos posteriores a la hora prevista.
         </p>
       )}
       {order.status === "entregado" &&

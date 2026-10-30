@@ -253,7 +253,7 @@ export async function kitchenData(kitchenId) {
       [kitchenId, since],
     ),
     db.query(
-      `SELECT i.offer_id AS "offerId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,r.status,r.fulfillment_status AS "fulfillmentStatus",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
+      `SELECT i.offer_id AS "offerId",i.id AS "orderItemId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,i.delivered_quantity AS "deliveredQuantity",r.status,r.fulfillment_status AS "fulfillmentStatus",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
          EXISTS(SELECT 1 FROM kitchen_reservation_events e WHERE e.order_id=r.id AND e.action='manual_add') AS "manualAdded"
          FROM orders r JOIN order_items i ON i.order_id=r.id JOIN users u ON u.id=r.user_id JOIN offers o ON o.id=i.offer_id
          WHERE r.kitchen_id=$1 AND o.kitchen_id=$1 AND o.offer_date >= $2 AND o.offer_date < date($2, '+14 days')
@@ -309,7 +309,7 @@ export async function kitchenStudentCandidates(
     await getDb().query(
       `SELECT u.id,u.name,u.email FROM users u WHERE u.role='consumer'
        AND (u.name LIKE $2 OR u.email LIKE $2)
-       AND NOT EXISTS (SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=u.id AND i.offer_id=$1)
+       AND NOT EXISTS (SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=u.id AND i.offer_id=$1 AND r.status='reservado' AND r.fulfillment_status<>'no_show')
        AND NOT EXISTS (SELECT 1 FROM orders r WHERE r.user_id=u.id AND r.status='reservado' AND r.fulfillment_status='no_show')
        ORDER BY u.name,u.email LIMIT 30`,
       [offerId, `%${query.replace(/[%_]/g, "")}%`],
@@ -348,7 +348,7 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
     if (
       (
         await db.query(
-          `SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=$1 AND i.offer_id=$2 LIMIT 1`,
+          `SELECT 1 FROM orders r JOIN order_items i ON i.order_id=r.id WHERE r.user_id=$1 AND i.offer_id=$2 AND r.status='reservado' AND r.fulfillment_status<>'no_show' LIMIT 1`,
           [studentId, offerId],
         )
       ).rowCount
@@ -371,9 +371,12 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
     if (!stock.rowCount) fail("No quedan suficientes porciones.", 409);
     const orderId = randomUUID();
     const total = offer.priceCents * quantity;
+    const extraordinary =
+      Date.now() >=
+      new Date(`${offer.date}T${offer.pickupUntil}:00-05:00`).getTime();
     await db.query(
-      `INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'reservado','QR al recibir',$10)`,
+      `INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents,fulfillment_status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'reservado','QR al recibir',$10,$11)`,
       [
         orderId,
         `MU-${randomUUID().slice(0, 8).toUpperCase()}`,
@@ -385,11 +388,12 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
         offer.pickupUntil,
         "Entrada del Comedor UTEC en piso 2",
         total,
+        extraordinary ? "delivered" : "pending",
       ],
     );
-    await db.query(
-      `INSERT INTO order_items(order_id,offer_id,dish_name,image_url,quantity,unit_price_cents,total_cents)
-       VALUES($1,$2,$3,$4,$5,$6,$7)`,
+    const addedItem = await db.query(
+      `INSERT INTO order_items(order_id,offer_id,dish_name,image_url,quantity,unit_price_cents,total_cents,delivered_quantity)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [
         orderId,
         offerId,
@@ -398,13 +402,19 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
         quantity,
         offer.priceCents,
         total,
+        extraordinary ? quantity : null,
       ],
     );
     await db.query(
       "INSERT INTO kitchen_reservation_events(id,order_id,actor_user_id,action,detail) VALUES($1,$2,$3,'manual_add',$4)",
-      [randomUUID(), orderId, actorId, `${quantity} porción(es) en ${offerId}`],
+      [
+        randomUUID(),
+        orderId,
+        actorId,
+        `${quantity} porción(es) en ${offerId}${extraordinary ? " · extraordinaria entregada" : ""}`,
+      ],
     );
-    return { orderId };
+    return { orderId, orderItemId: addedItem.rows[0].id, extraordinary };
   });
 }
 
@@ -423,8 +433,19 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
     if (!order) fail("Reserva no encontrada.", 404);
     if (order.status !== "reservado")
       fail("Esta reserva ya está cancelada.", 409);
+    const items = (
+      await db.query(
+        `SELECT i.id,i.offer_id AS "offerId",i.quantity,i.delivered_quantity AS "deliveredQuantity"
+         FROM order_items i JOIN offers o ON o.id=i.offer_id
+         WHERE i.order_id=$1 AND o.kitchen_id=$2`,
+        [orderId, kitchenId],
+      )
+    ).rows;
+    if (!items.length) fail("La reserva no tiene platos.", 409);
     let detail = "";
     if (action === "payment") {
+      if (order.fulfillmentStatus !== "delivered")
+        fail("Registra el pago al marcar la reserva como entregada.", 409);
       if (!paymentMethods.has(data.paymentMethod))
         fail("Selecciona un medio de pago válido.");
       await db.query(
@@ -433,6 +454,8 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
       );
       detail = data.paymentMethod;
     } else {
+      if (action === "deliver" && !paymentMethods.has(data.paymentMethod))
+        fail("Selecciona un medio de pago válido.");
       if (
         action === "cancel" &&
         Date.now() <
@@ -451,51 +474,70 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
           "Una reserva extraordinaria posterior al recojo no se puede marcar como ausencia.",
           409,
         );
+      if (action === "cancel" && order.fulfillmentStatus === "delivered")
+        fail("Una entrega registrada no se puede marcar como ausencia. Corrige primero su estado.", 409);
       const fulfillment =
         action === "deliver"
           ? "delivered"
           : action === "cancel"
             ? "no_show"
             : "pending";
-      if (order.fulfillmentStatus !== "no_show" && fulfillment === "no_show") {
-        const items = await db.query(
-          "SELECT offer_id AS offerId,SUM(quantity) AS units FROM order_items WHERE order_id=$1 GROUP BY offer_id",
-          [orderId],
+      const selectedId = Number(data.orderItemId);
+      const selectedItem =
+        items.find((item) => item.id === selectedId) ||
+        (items.length === 1 ? items[0] : null);
+      const deliveredQuantity = Number(data.deliveredQuantity);
+      if (
+        action === "deliver" &&
+        (!selectedItem || !Number.isInteger(deliveredQuantity) || deliveredQuantity < 1)
+      )
+        fail("Indica entre 1 y el cupo disponible de porciones entregadas.");
+      const changes = new Map();
+      for (const item of items) {
+        const previous =
+          order.fulfillmentStatus === "no_show"
+            ? 0
+            : order.fulfillmentStatus === "delivered"
+              ? item.deliveredQuantity ?? item.quantity
+              : item.quantity;
+        const next =
+          fulfillment === "no_show"
+            ? 0
+            : fulfillment === "pending"
+              ? item.quantity
+              : item.id === selectedItem.id
+                ? deliveredQuantity
+                : item.deliveredQuantity ?? item.quantity;
+        changes.set(item.offerId, (changes.get(item.offerId) || 0) + next - previous);
+        if (action === "deliver")
+          await db.query("UPDATE order_items SET delivered_quantity=$2 WHERE id=$1", [item.id, next]);
+        else if (action === "reset")
+          await db.query("UPDATE order_items SET delivered_quantity=NULL WHERE id=$1", [item.id]);
+      }
+      for (const [offerId, delta] of changes) {
+        if (!delta) continue;
+        const changed = await db.query(
+          `UPDATE offers SET reserved_count=reserved_count+$3,
+           sold_out_at=CASE WHEN reserved_count+$3=capacity THEN COALESCE(sold_out_at,$4) ELSE NULL END
+           WHERE id=$1 AND kitchen_id=$2 AND reserved_count+$3 BETWEEN 0 AND capacity RETURNING id`,
+          [offerId, kitchenId, delta, new Date().toISOString()],
         );
-        for (const item of items.rows) {
-          const released = await db.query(
-            "UPDATE offers SET reserved_count=reserved_count-$2,sold_out_at=NULL WHERE id=$1 AND kitchen_id=$3 AND reserved_count>=$2 RETURNING id",
-            [item.offerId, item.units, kitchenId],
+        if (!changed.rowCount)
+          fail(
+            action === "reset"
+              ? "No hay cupo para restaurar esta reserva. Amplía la capacidad del menú antes de corregirla."
+              : "Las porciones entregadas exceden el cupo del menú. Reduce la cantidad o amplía el cupo.",
+            409,
           );
-          if (!released.rowCount)
-            fail("No se pudo actualizar el cupo de este menú.", 409);
-        }
-      } else if (
-        order.fulfillmentStatus === "no_show" &&
-        fulfillment !== "no_show"
-      ) {
-        const items = await db.query(
-          "SELECT offer_id AS offerId,SUM(quantity) AS units FROM order_items WHERE order_id=$1 GROUP BY offer_id",
-          [orderId],
-        );
-        for (const item of items.rows) {
-          const restored = await db.query(
-            `UPDATE offers SET reserved_count=reserved_count+$2,sold_out_at=CASE WHEN reserved_count+$2=capacity THEN $4 ELSE sold_out_at END
-             WHERE id=$1 AND kitchen_id=$3 AND reserved_count+$2<=capacity RETURNING id`,
-            [item.offerId, item.units, kitchenId, new Date().toISOString()],
-          );
-          if (!restored.rowCount)
-            fail(
-              "No hay cupo para restaurar esta reserva. Amplía la capacidad del menú antes de corregirla.",
-              409,
-            );
-        }
       }
       await db.query(
-        "UPDATE orders SET fulfillment_status=$3,pickup_confirmed=0,review_enabled=CASE WHEN $3='delivered' THEN review_enabled ELSE 0 END WHERE id=$1 AND kitchen_id=$2",
-        [orderId, kitchenId, fulfillment],
+        `UPDATE orders SET fulfillment_status=$3,pickup_confirmed=0,
+         payment_recorded=CASE WHEN $3='delivered' THEN $4 ELSE NULL END,
+         review_enabled=CASE WHEN $3='delivered' THEN review_enabled ELSE 0 END
+         WHERE id=$1 AND kitchen_id=$2`,
+        [orderId, kitchenId, fulfillment, action === "deliver" ? data.paymentMethod : null],
       );
-      detail = fulfillment;
+      detail = action === "deliver" ? `${fulfillment}: ${deliveredQuantity} porción(es), ${data.paymentMethod}` : fulfillment;
     }
     await db.query(
       "INSERT INTO kitchen_reservation_events(id,order_id,actor_user_id,action,detail) VALUES($1,$2,$3,$4,$5)",

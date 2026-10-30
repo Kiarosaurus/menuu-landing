@@ -1516,6 +1516,11 @@ p {
   color: var(--color-orange-ink);
   font-weight: 600;
 }
+.offer-deadline-ended {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: currentColor;
+}
 .custom-dialog {
   width: min(100% - 30px, 570px);
   max-height: calc(100dvh - 30px);
@@ -2782,6 +2787,28 @@ p {
   color: var(--color-text);
   font-weight: 600;
 }
+.order-cancel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.order-cancel-link {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-orange-ink);
+  font: 600 14px var(--font-body);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.order-cancel-link:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+.order-cancel-confirm p { margin-bottom: 10px; font-size: 14px; }
+.order-cancel-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .review-note,
 .review-saved {
   margin-top: 14px;

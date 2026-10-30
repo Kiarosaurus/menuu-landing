@@ -41,8 +41,9 @@ if (!process.env.MENUU_TEST_DB_PATH) {
   const { closeDb, getDb } = await import("../server/db.mjs");
   const { weekStart } = await import("../server/catalog.mjs");
   const { hashPassword } = await import("../server/store.mjs");
-  const { createBooking, getCatalog, getOrders, insertUser, submitReview } =
+  const { cancelOrder, createBooking, getCatalog, getOrders, insertUser, submitReview } =
     await import("../server/repository.mjs");
+  const { expireOverdueReservations } = await import("../server/reservation-lifecycle.mjs");
   const { kitchenData, kitchenImage, saveDish, saveKitchenImage, saveOffer } =
     await import("../server/kitchen.mjs");
   const {
@@ -415,14 +416,20 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         }),
         /Cambio de reserva inválido/,
       );
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: manual.orderId,
+          action: "payment",
+          paymentMethod: "Efectivo",
+        }),
+        { status: 409 },
+      );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
         orderId: manual.orderId,
-        action: "payment",
-        paymentMethod: "Efectivo",
-      });
-      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
-        orderId: manual.orderId,
+        orderItemId: manual.orderItemId,
         action: "deliver",
+        deliveredQuantity: 1,
+        paymentMethod: "Efectivo",
       });
       const manualOrder = (await getOrders(preUser.id)).find(
         (order) => order.id === manual.orderId,
@@ -444,10 +451,55 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       );
       assert.equal(manualOrder.fulfillmentStatus, "delivered");
       assert.equal(manualOrder.payment, "Efectivo");
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: manual.orderId,
+          orderItemId: manual.orderItemId,
+          action: "deliver",
+          deliveredQuantity: 2,
+          paymentMethod: "QR",
+        }),
+        { status: 409 },
+      );
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: manual.orderId,
+          orderItemId: manual.orderItemId,
+          action: "deliver",
+          deliveredQuantity: 0,
+          paymentMethod: "QR",
+        }),
+        { status: 400 },
+      );
+      await db.query("UPDATE offers SET capacity=3 WHERE id=$1", [offerId]);
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: manual.orderId,
+        orderItemId: manual.orderItemId,
+        action: "deliver",
+        deliveredQuantity: 2,
+        paymentMethod: "QR",
+      });
+      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id=$1", [offerId])).rows[0].reserved_count, 3);
+      assert.deepEqual(
+        (await db.query("SELECT quantity,delivered_quantity AS deliveredQuantity FROM order_items WHERE id=$1", [manual.orderItemId])).rows[0],
+        { quantity: 1, deliveredQuantity: 2 },
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: manual.orderId,
+        orderItemId: manual.orderItemId,
+        action: "deliver",
+        deliveredQuantity: 1,
+        paymentMethod: "Efectivo",
+      });
+      await db.query("UPDATE offers SET capacity=2 WHERE id=$1", [offerId]);
       assert.equal(
         manualOrder.pickupPoint,
         "Entrada del Comedor UTEC en piso 2",
       );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: first[0].id,
+        action: "reset",
+      });
       await assert.rejects(
         updateKitchenReservation("test-kitchen", "kitchen-actor", {
           orderId: first[0].id,
@@ -525,6 +577,9 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       const extraordinaryOrder = (await getOrders(consumers[1].id)).find(
         (order) => order.id === extraordinary.orderId,
       );
+      assert.equal(extraordinary.extraordinary, true);
+      assert.equal(extraordinaryOrder.fulfillmentStatus, "delivered");
+      assert.equal((await db.query("SELECT delivered_quantity FROM order_items WHERE id=$1", [extraordinary.orderItemId])).rows[0].delivered_quantity, 1);
       assert.ok(
         new Date(extraordinaryOrder.createdAt).getTime() >
           new Date("2020-01-01T13:10:00-05:00").getTime(),
@@ -545,6 +600,40 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         }),
         /extraordinaria posterior al recojo/,
       );
+      await db.query(
+        "INSERT INTO offers(id,kitchen_id,dish_id,offer_date,delivery_time,pickup_until,booking_deadline_at,capacity,reserved_count) VALUES('cancel-offer','test-kitchen',$1,'2099-01-01','13:00','13:10','2098-12-31T13:00:00-05:00',1,1)",
+        [dishId],
+      );
+      await db.query(
+        "INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents) VALUES('cancel-order','MU-CANCEL',$1,'test-kitchen','Cocina','2099-01-01','13:00','13:10','Entrada del Comedor UTEC en piso 2','reservado','QR al recibir',1100)",
+        [consumers[1].id],
+      );
+      await db.query(
+        "INSERT INTO order_items(order_id,offer_id,dish_name,quantity,unit_price_cents,total_cents) VALUES('cancel-order','cancel-offer','Plato',1,1100,1100)",
+      );
+      await assert.rejects(cancelOrder(consumers[0].id, "cancel-order"), { status: 404 });
+      await cancelOrder(consumers[1].id, "cancel-order");
+      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id='cancel-offer'")).rows[0].reserved_count, 0);
+      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "cancel-order").status, "cancelado");
+      assert.equal((await kitchenStudentCandidates("test-kitchen", "cancel-offer")).some((student) => student.id === consumers[1].id), true);
+      await assert.rejects(cancelOrder(consumers[1].id, "cancel-order"), { status: 409 });
+      await db.query(
+        "INSERT INTO offers(id,kitchen_id,dish_id,offer_date,delivery_time,pickup_until,booking_deadline_at,capacity,reserved_count) VALUES('expired-offer','test-kitchen',$1,'2020-01-02','13:00','13:10','2020-01-02T12:00:00-05:00',1,1)",
+        [dishId],
+      );
+      await db.query(
+        "INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents,created_at) VALUES('expired-order','MU-EXPIRED',$1,'test-kitchen','Cocina','2020-01-02','13:00','13:10','Entrada del Comedor UTEC en piso 2','reservado','QR al recibir',1100,'2020-01-02T17:00:00Z')",
+        [consumers[1].id],
+      );
+      await db.query(
+        "INSERT INTO order_items(order_id,offer_id,dish_name,quantity,unit_price_cents,total_cents) VALUES('expired-order','expired-offer','Plato',1,1100,1100)",
+      );
+      await expireOverdueReservations(new Date('2020-01-02T18:14:00Z'));
+      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "expired-order").fulfillmentStatus, "pending");
+      assert.equal(await expireOverdueReservations(new Date('2020-01-02T18:15:00Z')), 1);
+      assert.equal(await expireOverdueReservations(new Date('2020-01-02T18:16:00Z')), 0);
+      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count, 0);
+      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "expired-order").fulfillmentStatus, "no_show");
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }

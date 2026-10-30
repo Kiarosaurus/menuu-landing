@@ -2,6 +2,7 @@
 import { deliveryMoment, weekStart } from "./catalog.mjs";
 import { normalizeComment, selectCustomization } from "./customization.mjs";
 import { getDb, transaction } from "./db.mjs";
+import { releaseOrderCapacity } from "./reservation-lifecycle.mjs";
 
 const soles = (cents) => cents / 100;
 const cents = (solesValue) => Math.round(solesValue * 100);
@@ -269,6 +270,29 @@ export async function removeSession(token) {
     await getDb().query("DELETE FROM sessions WHERE token_hash=$1", [
       tokenHash(token),
     ]);
+}
+
+export async function cancelOrder(userId, orderId) {
+  return transaction(async (db) => {
+    const order = (await db.query(
+      `SELECT id,kitchen_id AS "kitchenId",offer_date AS date,delivery_time AS "deliveryTime",status,
+       fulfillment_status AS "fulfillmentStatus" FROM orders WHERE id=$1 AND user_id=$2`,
+      [orderId, userId],
+    )).rows[0];
+    if (!order) throw invalid("Reserva no encontrada.", 404);
+    if (order.status !== "reservado" || order.fulfillmentStatus !== "pending")
+      throw invalid("Esta reserva ya no se puede cancelar.", 409);
+    if (deliveryMoment(order.date, order.deliveryTime).getTime() <= Date.now())
+      throw invalid("La hora de recojo ya comenzó. Contacta a la cocina.", 409);
+    const changed = await db.query(
+      `UPDATE orders SET status='cancelado',review_enabled=0,cancelled_at=$3
+       WHERE id=$1 AND user_id=$2 AND status='reservado' AND fulfillment_status='pending' RETURNING id`,
+      [orderId, userId, new Date().toISOString()],
+    );
+    if (!changed.rowCount) throw invalid("Esta reserva ya no se puede cancelar.", 409);
+    await releaseOrderCapacity(db, orderId, order.kitchenId);
+    return { ok: true };
+  });
 }
 
 export async function getOrders(userId) {
