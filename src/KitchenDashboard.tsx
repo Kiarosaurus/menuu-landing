@@ -824,8 +824,8 @@ function KitchenReservationPanel({
             value={statusFilter}
             options={[
               { value: "all", label: "Todos los estados" },
-              { value: "pending", label: "Pendientes de confirmar" },
-              { value: "confirmed", label: "Sin entregar" },
+              { value: "pending", label: "Sin confirmar" },
+              { value: "confirmed", label: "Confirmó que vendrá" },
               { value: "delivered", label: "Entregadas" },
               { value: "cancelled", label: "Canceladas · no vinieron" },
             ]}
@@ -861,8 +861,8 @@ function KitchenReservationPanel({
                   : status === "cancelled"
                     ? "Cancelado · no vino"
                     : status === "confirmed"
-                      ? "Sin entregar · confirmó asistencia"
-                      : "Pendiente de confirmar";
+                      ? "Confirmó que vendrá · sin entregar"
+                      : "Sin confirmar";
               return (
                 <article
                   className={`km-reservation km-reservation-${status}`}
@@ -905,7 +905,7 @@ function KitchenReservationPanel({
                               )
                             }
                           >
-                            Confirmó asistencia
+                            Registrar que vendrá
                           </Button>
                         )}
                       {item.fulfillmentStatus !== "delivered" &&
@@ -921,7 +921,7 @@ function KitchenReservationPanel({
                               )
                             }
                           >
-                            Entregado
+                            Marcar como entregado
                           </Button>
                         )}
                       {item.fulfillmentStatus === "pending" &&
@@ -939,7 +939,7 @@ function KitchenReservationPanel({
                               )
                             }
                           >
-                            No vino · cancelar
+                            Marcar como no vino
                           </Button>
                         )}
                       {(item.fulfillmentStatus !== "pending" ||
