@@ -75,8 +75,9 @@ type Page =
   | "cocinaCuenta";
 type PickupOption = { key: string; start: string; end: string };
 const validStudentCode = (code: string) =>
-  /^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8})$/.test(code);
-const studentCodeHelp = "Usa 9 dígitos o el formato 1234PRE56123456.";
+  /^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8}|[0-9]{5}PRE[A-Z]{2}[0-9]{5})$/.test(code);
+const studentCodeHelp =
+  "Usa 9 dígitos o un código PRE, por ejemplo 20261PREEN01008.";
 const routes: Record<Page, string> = {
   inicio: "#inicio",
   buscar: "#menu",
@@ -884,7 +885,7 @@ function AuthPanel({
                   autoComplete="off"
                   minLength={9}
                   maxLength={15}
-                  pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8})"
+                  pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8}|[0-9]{5}PRE[A-Z]{2}[0-9]{5})"
                   title={studentCodeHelp}
                   required
                   value={studentCode}
@@ -1216,7 +1217,7 @@ function AccountProfile({
               autoComplete="off"
               minLength={9}
               maxLength={15}
-              pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8})"
+              pattern="(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8}|[0-9]{5}PRE[A-Z]{2}[0-9]{5})"
               title={studentCodeHelp}
               required
               value={studentCode}

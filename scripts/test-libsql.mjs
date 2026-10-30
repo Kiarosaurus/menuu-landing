@@ -320,6 +320,22 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         (await preLongRegistered.json()).user.studentCode,
         "5678PRE90123456",
       );
+      const preLettersRegistered = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Estudiante PRE letras",
+          email: "preletras@utec.edu.pe",
+          password: "clave-segura",
+          studentCode: "20261preen01008",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(preLettersRegistered.status, 201);
+      assert.equal(
+        (await preLettersRegistered.json()).user.studentCode,
+        "20261PREEN01008",
+      );
       const preUpdated = await fetch(`${base}/api/account/profile`, {
         method: "POST",
         headers: {
