@@ -237,19 +237,19 @@ export async function kitchenData(kitchenId) {
       [kitchenId, start],
     ),
     db.query(
-      `SELECT o.id,o.dish_id AS "dishId",d.name AS "dishName",o.offer_date AS date,o.capacity,o.reserved_count AS "reservedCount",o.published_at AS "publishedAt",o.sold_out_at AS "soldOutAt",COALESCE(sum(i.quantity) FILTER (WHERE r.status='reservado'),0) AS units,COALESCE(sum(i.total_cents) FILTER (WHERE r.status='reservado'),0) AS "revenueCents",count(DISTINCT r.id) FILTER (WHERE r.status='reservado') AS "orderCount",min(r.created_at) FILTER (WHERE r.status='reservado') AS "firstBookingAt" FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id LEFT JOIN order_items i ON i.offer_id=o.id LEFT JOIN orders r ON r.id=i.order_id AND r.created_at >= $2 WHERE o.kitchen_id=$1 AND o.offer_date >= date($3, '-28 days') AND o.offer_date < date($3, '+14 days') GROUP BY o.id,d.name ORDER BY o.offer_date DESC,o.id`,
+      `SELECT o.id,o.dish_id AS "dishId",d.name AS "dishName",o.offer_date AS date,o.capacity,o.reserved_count AS "reservedCount",o.published_at AS "publishedAt",o.sold_out_at AS "soldOutAt",COALESCE(sum(i.quantity) FILTER (WHERE r.status='reservado' AND r.fulfillment_status<>'no_show'),0) AS units,COALESCE(sum(i.total_cents) FILTER (WHERE r.status='reservado' AND r.fulfillment_status<>'no_show'),0) AS "revenueCents",count(DISTINCT r.id) FILTER (WHERE r.status='reservado' AND r.fulfillment_status<>'no_show') AS "orderCount",min(r.created_at) FILTER (WHERE r.status='reservado' AND r.fulfillment_status<>'no_show') AS "firstBookingAt" FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id LEFT JOIN order_items i ON i.offer_id=o.id LEFT JOIN orders r ON r.id=i.order_id AND r.created_at >= $2 WHERE o.kitchen_id=$1 AND o.offer_date >= date($3, '-28 days') AND o.offer_date < date($3, '+14 days') GROUP BY o.id,d.name ORDER BY o.offer_date DESC,o.id`,
       [kitchenId, since, today],
     ),
     db.query(
-      `SELECT CAST(strftime('%H',r.created_at,'-5 hours') AS INTEGER) AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY hour ORDER BY hour`,
+      `SELECT CAST(strftime('%H',r.created_at,'-5 hours') AS INTEGER) AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.fulfillment_status<>'no_show' AND r.created_at >= $2 GROUP BY hour ORDER BY hour`,
       [kitchenId, since],
     ),
     db.query(
-      `SELECT i.offer_id AS "offerId",strftime('%Y-%m-%d %H:00',r.created_at,'-5 hours') AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.created_at >= $2 GROUP BY i.offer_id,hour ORDER BY hour`,
+      `SELECT i.offer_id AS "offerId",strftime('%Y-%m-%d %H:00',r.created_at,'-5 hours') AS hour,sum(i.quantity) AS units FROM orders r JOIN order_items i ON i.order_id=r.id JOIN offers o ON o.id=i.offer_id WHERE o.kitchen_id=$1 AND r.status='reservado' AND r.fulfillment_status<>'no_show' AND r.created_at >= $2 GROUP BY i.offer_id,hour ORDER BY hour`,
       [kitchenId, since],
     ),
     db.query(
-      `SELECT count(DISTINCT id) AS count FROM orders WHERE kitchen_id=$1 AND status='reservado' AND created_at >= $2`,
+      `SELECT count(DISTINCT id) AS count FROM orders WHERE kitchen_id=$1 AND status='reservado' AND fulfillment_status<>'no_show' AND created_at >= $2`,
       [kitchenId, since],
     ),
     db.query(
@@ -465,6 +465,40 @@ export async function updateKitchenReservation(kitchenId, actorId, data) {
           : action === "cancel"
             ? "no_show"
             : "pending";
+      if (order.fulfillmentStatus !== "no_show" && fulfillment === "no_show") {
+        const items = await db.query(
+          "SELECT offer_id AS offerId,SUM(quantity) AS units FROM order_items WHERE order_id=$1 GROUP BY offer_id",
+          [orderId],
+        );
+        for (const item of items.rows) {
+          const released = await db.query(
+            "UPDATE offers SET reserved_count=reserved_count-$2,sold_out_at=NULL WHERE id=$1 AND kitchen_id=$3 AND reserved_count>=$2 RETURNING id",
+            [item.offerId, item.units, kitchenId],
+          );
+          if (!released.rowCount)
+            fail("No se pudo actualizar el cupo de este menú.", 409);
+        }
+      } else if (
+        order.fulfillmentStatus === "no_show" &&
+        fulfillment !== "no_show"
+      ) {
+        const items = await db.query(
+          "SELECT offer_id AS offerId,SUM(quantity) AS units FROM order_items WHERE order_id=$1 GROUP BY offer_id",
+          [orderId],
+        );
+        for (const item of items.rows) {
+          const restored = await db.query(
+            `UPDATE offers SET reserved_count=reserved_count+$2,sold_out_at=CASE WHEN reserved_count+$2=capacity THEN $4 ELSE sold_out_at END
+             WHERE id=$1 AND kitchen_id=$3 AND reserved_count+$2<=capacity RETURNING id`,
+            [item.offerId, item.units, kitchenId, new Date().toISOString()],
+          );
+          if (!restored.rowCount)
+            fail(
+              "No hay cupo para restaurar esta reserva. Amplía la capacidad del menú antes de corregirla.",
+              409,
+            );
+        }
+      }
       const confirmed =
         action === "confirm" || action === "deliver"
           ? 1

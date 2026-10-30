@@ -331,8 +331,8 @@ async function handleApi(req, res, url) {
     if (!validateEmail(email))
       return error(res, 400, "Usa tu correo institucional @utec.edu.pe.");
 
-    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})$/.test(studentCode))
-      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE5612345.");
+    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8})$/.test(studentCode))
+      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE56123456.");
 
     if (!careers.includes(career))
       return error(res, 400, "Selecciona una carrera de la lista.");
@@ -439,8 +439,8 @@ async function handleApi(req, res, url) {
     if (name.length < 2 || name.length > 80)
       return error(res, 400, "Escribe tu nombre (2 a 80 caracteres).");
 
-    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7})$/.test(studentCode))
-      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE5612345.");
+    if (!/^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8})$/.test(studentCode))
+      return error(res, 400, "Usa 9 dígitos o el formato 1234PRE56123456.");
 
     if (!careers.includes(career))
       return error(res, 400, "Selecciona una carrera de la lista.");

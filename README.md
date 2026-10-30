@@ -22,7 +22,7 @@ Abre [http://127.0.0.1:5174/#inicio](http://127.0.0.1:5174/#inicio). Sin `TURSO_
 | `npm run db:migrate`  | Aplica las migraciones libSQL pendientes.                     |
 | `npm run test:libsql` | Prueba el esquema y los flujos críticos en una base temporal. |
 
-Las cuentas de estudiante se registran con `@utec.edu.pe`, código único de nueve dígitos o formato `0000PREXX00000` (ceros y equis representan dígitos) y carrera de la lista UTEC. El acceso de cocina requiere una cuenta asignada internamente a su cocina; no existe registro público de cocinas.
+Las cuentas de estudiante se registran con `@utec.edu.pe`, código único de nueve dígitos o formato `0000PREXX000000` (ceros y equis representan dígitos) y carrera de la lista UTEC. Los códigos PRE anteriores de 14 caracteres también se admiten. El acceso de cocina requiere una cuenta asignada internamente a su cocina; no existe registro público de cocinas.
 
 ## Vercel y Turso
 

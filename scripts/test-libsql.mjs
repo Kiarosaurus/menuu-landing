@@ -83,6 +83,18 @@ if (!process.env.MENUU_TEST_DB_PATH) {
     await migrationDb.query(
       "INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents) VALUES ('old-order','MU-OLD','before-migration','old-kitchen','Cocina anterior','2020-01-01','13:00','13:10','Comedor UTEC','reservado','QR al recibir',1100)",
     );
+    await migrationDb.query(
+      "INSERT INTO dishes(kitchen_id,id,name,price_cents) VALUES ('old-kitchen','old-dish','Plato anterior',1100)",
+    );
+    await migrationDb.query(
+      "INSERT INTO offers(id,kitchen_id,dish_id,offer_date,delivery_time,pickup_until,booking_deadline_at,capacity,reserved_count,sold_out_at) VALUES ('old-offer','old-kitchen','old-dish','2020-01-01','13:00','13:10','2020-01-01T12:00:00-05:00',1,1,'2020-01-01T12:00:00Z')",
+    );
+    await migrationDb.query(
+      "INSERT INTO orders(id,code,user_id,kitchen_id,kitchen_name,offer_date,delivery_time,pickup_until,pickup_point,status,payment,total_cents,fulfillment_status) VALUES ('old-no-show','MU-NOSHOW','before-migration','old-kitchen','Cocina anterior','2020-01-01','13:00','13:10','Comedor UTEC','reservado','QR al recibir',1100,'no_show')",
+    );
+    await migrationDb.query(
+      "INSERT INTO order_items(order_id,offer_id,dish_name,quantity,unit_price_cents,total_cents) VALUES ('old-no-show','old-offer','Plato anterior',1,1100,1100)",
+    );
     await migrate();
     await migrate();
     const db = getDb();
@@ -100,6 +112,13 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         .rows[0].pickup_point,
       "Entrada del Comedor UTEC en piso 2",
     );
+    const reconciled = (
+      await db.query(
+        "SELECT reserved_count,sold_out_at FROM offers WHERE id='old-offer'",
+      )
+    ).rows[0];
+    assert.equal(reconciled.reserved_count, 0);
+    assert.equal(reconciled.sold_out_at, null);
 
     await db.query(
       "INSERT INTO kitchens(id,name,description) VALUES ($1,$2,$3)",
@@ -285,6 +304,39 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         (await preRegistered.json()).user.studentCode,
         "1234PRE5612345",
       );
+      const preLongRegistered = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Estudiante PRE largo",
+          email: "prelargo@utec.edu.pe",
+          password: "clave-segura",
+          studentCode: "5678pre90123456",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(preLongRegistered.status, 201);
+      assert.equal(
+        (await preLongRegistered.json()).user.studentCode,
+        "5678PRE90123456",
+      );
+      const preUpdated = await fetch(`${base}/api/account/profile`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: preRegistered.headers.get("set-cookie").split(";")[0],
+        },
+        body: JSON.stringify({
+          name: "Estudiante PRE",
+          studentCode: "1234PRE56123456",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(preUpdated.status, 200);
+      assert.equal(
+        (await preUpdated.json()).user.studentCode,
+        "1234PRE56123456",
+      );
       const invalidPre = await fetch(`${base}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -398,10 +450,44 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         ).fulfillmentStatus,
         "no_show",
       );
+      const releasedStock = (
+        await db.query(
+          "SELECT reserved_count,sold_out_at FROM offers WHERE id=$1",
+          [offerId],
+        )
+      ).rows[0];
+      assert.equal(releasedStock.reserved_count, 1);
+      assert.equal(releasedStock.sold_out_at, null);
+      const preLongUser = (
+        await db.query(
+          "SELECT id FROM users WHERE email='prelargo@utec.edu.pe'",
+        )
+      ).rows[0];
+      await addKitchenReservation("test-kitchen", "kitchen-actor", {
+        offerId,
+        studentId: preLongUser.id,
+        quantity: 1,
+      });
+      await assert.rejects(
+        updateKitchenReservation("test-kitchen", "kitchen-actor", {
+          orderId: first[0].id,
+          action: "reset",
+        }),
+        /No hay cupo para restaurar/,
+      );
+      await db.query("UPDATE offers SET capacity=3 WHERE id=$1", [offerId]);
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
         orderId: first[0].id,
         action: "reset",
       });
+      assert.equal(
+        (
+          await db.query("SELECT reserved_count FROM offers WHERE id=$1", [
+            offerId,
+          ])
+        ).rows[0].reserved_count,
+        3,
+      );
       assert.equal(
         (await getOrders(consumers[0].id)).find(
           (order) => order.id === first[0].id,
@@ -409,7 +495,7 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         "pending",
       );
       await db.query(
-        "UPDATE offers SET offer_date='2020-01-01',capacity=3 WHERE id=$1",
+        "UPDATE offers SET offer_date='2020-01-01',capacity=4 WHERE id=$1",
         [offerId],
       );
       const extraordinary = await addKitchenReservation(
