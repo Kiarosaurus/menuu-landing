@@ -70,6 +70,7 @@ type KitchenReservation = {
   studentEmail: string;
   quantity: number;
   deliveredQuantity: number | null;
+  bookingDeadlineAt: string | null;
   status: string;
   fulfillmentStatus: "pending" | "delivered" | "no_show";
   paymentRecorded: string | null;
@@ -95,6 +96,22 @@ const deliveredUnitsForOffer = (
         item.fulfillmentStatus === "delivered",
     )
     .reduce((sum, item) => sum + (item.deliveredQuantity ?? item.quantity), 0);
+const onTimeReservationsForOffer = (
+  reservations: KitchenReservation[],
+  offer: Offer,
+) =>
+  new Set(
+    reservations
+      .filter(
+        (item) =>
+          item.offerId === offer.id &&
+          item.status === "reservado" &&
+          item.fulfillmentStatus !== "no_show" &&
+          new Date(item.createdAt).getTime() <=
+            new Date(item.bookingDeadlineAt || offer.bookingDeadline).getTime(),
+      )
+      .map((item) => item.orderId),
+  ).size;
 type StatOffer = {
   id: string;
   dishId: string;
@@ -257,15 +274,17 @@ function KitchenSelect({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (open)
+    if (open && !wasOpen.current)
       optionRefs.current[
         Math.max(
           0,
           options.findIndex((option) => option.value === value),
         )
       ]?.focus();
-  }, [open, options, value]);
+    wasOpen.current = open;
+  });
   const focusOption = (index: number) =>
     optionRefs.current[(index + options.length) % options.length]?.focus();
   const selected = options.find((option) => option.value === value);
@@ -318,6 +337,7 @@ function KitchenSelect({
               type="button"
               role="option"
               aria-selected={value === option.value}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 onChange(option.value);
                 setOpen(false);
@@ -653,6 +673,7 @@ function KitchenDishPreview({
 function KitchenMenuRow({
   offer,
   dish,
+  onTimeCount,
   deliveredCount,
   today,
   onEdit,
@@ -661,6 +682,7 @@ function KitchenMenuRow({
 }: {
   offer: Offer;
   dish?: Dish;
+  onTimeCount: number;
   deliveredCount: number;
   today: string;
   onEdit: () => void;
@@ -695,10 +717,8 @@ function KitchenMenuRow({
         </p>
       </div>
       <div className="km-menu-count">
-        <strong>
-          {deliveredCount} entregadas
-        </strong>
-        <small>{offer.reservedCount} de {offer.capacity} cupos ocupados</small>
+        <strong>{onTimeCount} {onTimeCount === 1 ? "reserva a tiempo" : "reservas a tiempo"}</strong>
+        <small>{deliveredCount} de {offer.capacity} porciones vendidas</small>
       </div>
       <div className="km-menu-action">
         {past ? (
@@ -2610,6 +2630,7 @@ export default function KitchenDashboard({
                       key={item.id}
                       offer={item}
                       dish={data.dishes.find((d) => d.id === item.dishId)}
+                      onTimeCount={onTimeReservationsForOffer(data.reservations, item)}
                       deliveredCount={deliveredUnitsForOffer(data.reservations, item.id)}
                       today={current}
                       reservationsOpen={reservationsOfferId === item.id}

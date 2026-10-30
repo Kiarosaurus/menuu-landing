@@ -520,9 +520,12 @@ function CareerPicker({
   const pickerRef = useRef<HTMLDivElement>(null);
   const mobileSelectRef = useRef<HTMLSelectElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (open) optionRefs.current[Math.max(0, careers.indexOf(value))]?.focus();
-  }, [open, careers, value]);
+    if (open && !wasOpen.current)
+      optionRefs.current[Math.max(0, careers.indexOf(value))]?.focus();
+    wasOpen.current = open;
+  });
   useEffect(() => {
     if (!open) return;
     const closeOnOutsideTap = (event: PointerEvent) => {
@@ -537,6 +540,11 @@ function CareerPicker({
   }, [invalid]);
   const focusOption = (index: number) =>
     optionRefs.current[(index + careers.length) % careers.length]?.focus();
+  const selectCareer = (career: string) => {
+    onChange(career);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
   return (
     <div
       ref={pickerRef}
@@ -628,11 +636,8 @@ function CareerPicker({
               type="button"
               role="option"
               aria-selected={value === item}
-              onClick={() => {
-                onChange(item);
-                setOpen(false);
-                triggerRef.current?.focus();
-              }}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectCareer(item)}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
@@ -2574,6 +2579,7 @@ function WeekMenu({
             <button
               type="button"
               aria-pressed={!kitchenFilter}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={onAllKitchens}
             >
               <BrandStoreIcon size={20} />
@@ -2584,6 +2590,7 @@ function WeekMenu({
                 type="button"
                 key={kitchen.id}
                 aria-pressed={kitchenFilter === kitchen.id}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => onKitchen(kitchen.id)}
               >
                 <img src={kitchen.logoUrl} alt="" />
@@ -2628,6 +2635,7 @@ function WeekMenu({
             <button
               type="button"
               aria-pressed={!pickupFilter}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={(event) => choosePickup(null, event)}
             >
               Cualquier horario
@@ -2637,6 +2645,7 @@ function WeekMenu({
                 type="button"
                 key={option.key}
                 aria-pressed={pickupFilter === option.key}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={(event) => choosePickup(option.key, event)}
               >
                 {pickupWindow(option.start, option.end)}

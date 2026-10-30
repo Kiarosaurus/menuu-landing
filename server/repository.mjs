@@ -583,6 +583,7 @@ export async function createBooking(userId, payload, requestKey = null) {
         totalCents: unitPriceCents * quantity,
         kitchenId: offer.kitchenId,
         kitchenName: kitchenNames.get(offer.kitchenId) || "",
+        bookingDeadline: offer.bookingDeadline,
         date: offer.date,
         deliveryTime: offer.deliveryTime,
         pickupUntil: offer.pickupUntil,
@@ -652,8 +653,8 @@ export async function createBooking(userId, payload, requestKey = null) {
 
       for (const [index, item] of group.entries()) {
         const saved = await client.query(
-          `INSERT INTO order_items (order_id,offer_id,dish_name,image_url,quantity,comment,unit_price_cents,total_cents,sort_order)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+          `INSERT INTO order_items (order_id,offer_id,dish_name,image_url,quantity,comment,unit_price_cents,total_cents,sort_order,booking_deadline_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
           [
             order.id,
             item.offeringId,
@@ -664,6 +665,7 @@ export async function createBooking(userId, payload, requestKey = null) {
             item.unitPriceCents,
             item.totalCents,
             index,
+            item.bookingDeadline,
           ],
         );
 

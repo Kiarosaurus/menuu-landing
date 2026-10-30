@@ -395,6 +395,13 @@ if (!process.env.MENUU_TEST_DB_PATH) {
           quantity: 1,
         },
       );
+      const manualReservation = (await kitchenData("test-kitchen")).reservations.find(
+        (item) => item.orderId === manual.orderId,
+      );
+      assert.equal(
+        manualReservation.bookingDeadlineAt,
+        (await db.query("SELECT booking_deadline_at AS deadline FROM offers WHERE id=$1", [offerId])).rows[0].deadline,
+      );
       assert.equal(
         (await kitchenStudentCandidates("test-kitchen", offerId, "pre@")).some(
           (student) => student.id === preUser.id,
@@ -566,7 +573,7 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         "pending",
       );
       await db.query(
-        "UPDATE offers SET offer_date='2020-01-01',capacity=4 WHERE id=$1",
+        "UPDATE offers SET offer_date='2020-01-01',booking_deadline_at='2020-01-01T12:00:00-05:00',capacity=4 WHERE id=$1",
         [offerId],
       );
       const extraordinary = await addKitchenReservation(
@@ -579,6 +586,10 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       );
       assert.equal(extraordinary.extraordinary, true);
       assert.equal(extraordinaryOrder.fulfillmentStatus, "delivered");
+      assert.ok(
+        new Date(extraordinaryOrder.createdAt).getTime() >
+          new Date((await db.query("SELECT booking_deadline_at AS deadline FROM order_items WHERE id=$1", [extraordinary.orderItemId])).rows[0].deadline).getTime(),
+      );
       assert.equal((await db.query("SELECT delivered_quantity FROM order_items WHERE id=$1", [extraordinary.orderItemId])).rows[0].delivered_quantity, 1);
       assert.ok(
         new Date(extraordinaryOrder.createdAt).getTime() >

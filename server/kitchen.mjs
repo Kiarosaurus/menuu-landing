@@ -253,7 +253,7 @@ export async function kitchenData(kitchenId) {
       [kitchenId, since],
     ),
     db.query(
-      `SELECT i.offer_id AS "offerId",i.id AS "orderItemId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,i.delivered_quantity AS "deliveredQuantity",r.status,r.fulfillment_status AS "fulfillmentStatus",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
+      `SELECT i.offer_id AS "offerId",i.id AS "orderItemId",r.id AS "orderId",r.code,u.name AS "studentName",u.email AS "studentEmail",i.quantity,i.delivered_quantity AS "deliveredQuantity",i.booking_deadline_at AS "bookingDeadlineAt",r.status,r.fulfillment_status AS "fulfillmentStatus",r.payment_recorded AS "paymentRecorded",r.created_at AS "createdAt",
          EXISTS(SELECT 1 FROM kitchen_reservation_events e WHERE e.order_id=r.id AND e.action='manual_add') AS "manualAdded"
          FROM orders r JOIN order_items i ON i.order_id=r.id JOIN users u ON u.id=r.user_id JOIN offers o ON o.id=i.offer_id
          WHERE r.kitchen_id=$1 AND o.kitchen_id=$1 AND o.offer_date >= $2 AND o.offer_date < date($2, '+14 days')
@@ -332,7 +332,7 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
   return transaction(async (db) => {
     const offer = (
       await db.query(
-        `SELECT o.id,o.kitchen_id AS "kitchenId",o.offer_date AS date,o.delivery_time AS "deliveryTime",o.pickup_until AS "pickupUntil",o.capacity,o.reserved_count AS "reservedCount",d.name AS "dishName",d.image_url AS "imageUrl",COALESCE(o.price_override_cents,d.price_cents) AS "priceCents",k.name AS "kitchenName"
+        `SELECT o.id,o.kitchen_id AS "kitchenId",o.offer_date AS date,o.delivery_time AS "deliveryTime",o.pickup_until AS "pickupUntil",o.booking_deadline_at AS "bookingDeadline",o.capacity,o.reserved_count AS "reservedCount",d.name AS "dishName",d.image_url AS "imageUrl",COALESCE(o.price_override_cents,d.price_cents) AS "priceCents",k.name AS "kitchenName"
          FROM offers o JOIN dishes d ON d.kitchen_id=o.kitchen_id AND d.id=o.dish_id JOIN kitchens k ON k.id=o.kitchen_id
          WHERE o.id=$1 AND o.kitchen_id=$2`,
         [offerId, kitchenId],
@@ -392,8 +392,8 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
       ],
     );
     const addedItem = await db.query(
-      `INSERT INTO order_items(order_id,offer_id,dish_name,image_url,quantity,unit_price_cents,total_cents,delivered_quantity)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      `INSERT INTO order_items(order_id,offer_id,dish_name,image_url,quantity,unit_price_cents,total_cents,delivered_quantity,booking_deadline_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
       [
         orderId,
         offerId,
@@ -403,6 +403,7 @@ export async function addKitchenReservation(kitchenId, actorId, data) {
         offer.priceCents,
         total,
         extraordinary ? quantity : null,
+        offer.bookingDeadline,
       ],
     );
     await db.query(

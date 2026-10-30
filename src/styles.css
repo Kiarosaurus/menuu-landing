@@ -2255,6 +2255,9 @@ p {
 .career-picker-trigger > span {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .career-picker-trigger .placeholder {
   color: #657664;
@@ -2265,7 +2268,7 @@ p {
   transition: transform 0.2s ease;
 }
 .career-picker-trigger .career-picker-selected {
-  display: none;
+  color: var(--color-orange-display);
 }
 .career-picker-trigger[aria-expanded="true"] > svg:last-child {
   transform: rotate(180deg);
