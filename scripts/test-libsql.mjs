@@ -6,6 +6,7 @@ import { basename, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { createClient } from "@libsql/client";
 
 if (!process.env.MENUU_TEST_DB_PATH) {
   const directory = await mkdtemp(join(tmpdir(), "menuu-libsql-"));
@@ -25,13 +26,49 @@ if (!process.env.MENUU_TEST_DB_PATH) {
     });
 
     if (code) process.exitCode = code;
+    if (!code) {
+      const adminDbUrl = `file:${join(directory, "fresh-admin.db")}`;
+      const adminCode = await new Promise((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [fileURLToPath(new URL("./create-admin.mjs", import.meta.url))],
+          {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              MENUU_ADMIN_DATABASE_URL: adminDbUrl,
+              MENUU_ADMIN_EMAIL: "admin-fresh@menuu.test",
+              MENUU_ADMIN_PASSWORD: "clave-admin-temporal-123",
+            },
+          },
+        );
+        child.on("error", reject);
+        child.on("exit", (value) => resolve(value || 0));
+      });
+      assert.equal(adminCode, 0);
+      const freshDb = createClient({ url: adminDbUrl });
+      try {
+        const admin = await freshDb.execute(
+          "SELECT role,kitchen_id FROM users WHERE email='admin-fresh@menuu.test'",
+        );
+        assert.equal(admin.rows[0].role, "admin");
+        assert.equal(admin.rows[0].kitchen_id, null);
+      } finally {
+        await freshDb.close();
+      }
+    }
   } finally {
     if (
       !resolve(directory).startsWith(`${resolve(tmpdir())}${sep}`) ||
       !basename(directory).startsWith("menuu-libsql-")
     )
       throw new Error("Ruta temporal inesperada.");
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   }
 } else {
   process.env.TURSO_DATABASE_URL = `file:${process.env.MENUU_TEST_DB_PATH}`;
@@ -41,8 +78,15 @@ if (!process.env.MENUU_TEST_DB_PATH) {
   const { closeDb, getDb } = await import("../server/db.mjs");
   const { weekStart } = await import("../server/catalog.mjs");
   const { hashPassword } = await import("../server/store.mjs");
-  const { cancelOrder, createBooking, getCatalog, getOrders, insertSession, insertUser, submitReview } =
-    await import("../server/repository.mjs");
+  const {
+    cancelOrder,
+    createBooking,
+    getCatalog,
+    getOrders,
+    insertSession,
+    insertUser,
+    submitReview,
+  } = await import("../server/repository.mjs");
   const { kitchenData, kitchenImage, saveDish, saveKitchenImage, saveOffer } =
     await import("../server/kitchen.mjs");
   const {
@@ -371,6 +415,174 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       await db.query(
         "INSERT INTO users(id,name,email,password_hash,role,kitchen_id) VALUES ('kitchen-actor','Cocina temporal','cocina@menuu.test','hash','kitchen','test-kitchen')",
       );
+      await db.query(
+        "INSERT INTO users(id,name,email,password_hash,role) VALUES ('admin-actor','Admin temporal','admin@menuu.test',$1,'admin')",
+        [hashPassword("admin-test-password")],
+      );
+      const adminToken = "b".repeat(64);
+      await insertSession(adminToken, "admin-actor");
+      const adminCookie = `menuu_session=${adminToken}`;
+      const adminHeaders = {
+        Cookie: adminCookie,
+        "Content-Type": "application/json",
+      };
+      const adminLogin = await fetch(`${base}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "admin@menuu.test",
+          password: "admin-test-password",
+          role: "admin",
+        }),
+      });
+      assert.equal(adminLogin.status, 200);
+      assert.equal((await adminLogin.json()).user.role, "admin");
+      assert.equal((await fetch(`${base}/api/admin/data`)).status, 401);
+      assert.equal(
+        (await fetch(`${base}/api/admin/data`, { headers: { Cookie: cookie } }))
+          .status,
+        403,
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/api/kitchen/data`, {
+            headers: { Cookie: adminCookie },
+          })
+        ).status,
+        401,
+      );
+      await db.query(
+        "INSERT INTO kitchens(id,name) VALUES ('second-kitchen','Segunda cocina')",
+      );
+      const secondDish = await saveDish("second-kitchen", {
+        name: "Segundo almuerzo",
+        priceSoles: 12,
+        imageUrl: "/images/menuu-logo.png",
+        customization: [],
+      });
+      const secondOffer = await saveOffer("second-kitchen", {
+        dishId: secondDish,
+        date: offerDate,
+        deliveryTime: "14:00",
+        pickupUntil: "14:10",
+        bookingDeadline: `${offerDate}T13:00:00-05:00`,
+        capacity: 2,
+      });
+      const allOffers = await fetch(`${base}/api/admin/data`, {
+        headers: { Cookie: adminCookie },
+      });
+      assert.equal(allOffers.status, 200);
+      assert.deepEqual(
+        new Set((await allOffers.json()).offers.map((item) => item.kitchenId)),
+        new Set(["test-kitchen", "second-kitchen"]),
+      );
+      assert.equal(
+        (await kitchenData("test-kitchen")).offers.some(
+          (item) => item.id === secondOffer,
+        ),
+        false,
+      );
+      const beforeStudent = await fetch(
+        `${base}/api/admin/offers/${secondOffer}/students?q=fresh%40`,
+        { headers: { Cookie: adminCookie } },
+      );
+      assert.deepEqual((await beforeStudent.json()).students, []);
+      const freshRegistration = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Estudiante reciente",
+          email: "fresh@utec.edu.pe",
+          password: "clave-segura",
+          studentCode: "900000003",
+          career: "Ciencia de la Computación",
+        }),
+      });
+      assert.equal(freshRegistration.status, 201);
+      const freshUser = (
+        await db.query("SELECT id FROM users WHERE email='fresh@utec.edu.pe'")
+      ).rows[0];
+      const afterStudent = await fetch(
+        `${base}/api/admin/offers/${secondOffer}/students?q=fresh%40`,
+        { headers: { Cookie: adminCookie } },
+      );
+      assert.equal((await afterStudent.json()).students[0].id, freshUser.id);
+      assert.equal(
+        (
+          await kitchenStudentCandidates("test-kitchen", offerId, "fresh@")
+        ).some((item) => item.id === freshUser.id),
+        true,
+      );
+      const changedCapacity = await fetch(`${base}/api/admin/offers/capacity`, {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({ offerId: secondOffer, capacity: 3 }),
+      });
+      assert.equal(changedCapacity.status, 200);
+      assert.equal(
+        (
+          await db.query(
+            "SELECT actor_user_id AS actor,previous_capacity AS previous,new_capacity AS next FROM admin_offer_events WHERE offer_id=$1",
+            [secondOffer],
+          )
+        ).rows[0].actor,
+        "admin-actor",
+      );
+      const adminAdded = await fetch(`${base}/api/admin/reservations/add`, {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({
+          offerId: secondOffer,
+          studentId: freshUser.id,
+          quantity: 1,
+        }),
+      });
+      assert.equal(adminAdded.status, 201);
+      const adminOrderId = (await adminAdded.json()).orderId;
+      const secondAdminAdd = await fetch(`${base}/api/admin/reservations/add`, {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({
+          offerId: secondOffer,
+          studentId: preUser.id,
+          quantity: 1,
+        }),
+      });
+      assert.equal(secondAdminAdd.status, 201);
+      const invalidCapacity = await fetch(`${base}/api/admin/offers/capacity`, {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({ offerId: secondOffer, capacity: 1 }),
+      });
+      assert.equal(invalidCapacity.status, 409);
+      const adminDelivered = await fetch(
+        `${base}/api/admin/reservations/update`,
+        {
+          method: "POST",
+          headers: adminHeaders,
+          body: JSON.stringify({
+            orderId: adminOrderId,
+            action: "deliver",
+            orderItemId: (
+              await db.query("SELECT id FROM order_items WHERE order_id=$1", [
+                adminOrderId,
+              ])
+            ).rows[0].id,
+            deliveredQuantity: 1,
+            paymentMethod: "QR",
+          }),
+        },
+      );
+      assert.equal(adminDelivered.status, 200);
+      assert.equal(
+        (
+          await db.query(
+            "SELECT actor_user_id AS actor FROM kitchen_reservation_events WHERE order_id=$1 AND action='deliver'",
+            [adminOrderId],
+          )
+        ).rows[0].actor,
+        "admin-actor",
+      );
       await db.query("UPDATE offers SET capacity=2 WHERE id=$1", [offerId]);
       const candidates = await kitchenStudentCandidates(
         "test-kitchen",
@@ -394,12 +606,17 @@ if (!process.env.MENUU_TEST_DB_PATH) {
           quantity: 1,
         },
       );
-      const manualReservation = (await kitchenData("test-kitchen")).reservations.find(
-        (item) => item.orderId === manual.orderId,
-      );
+      const manualReservation = (
+        await kitchenData("test-kitchen")
+      ).reservations.find((item) => item.orderId === manual.orderId);
       assert.equal(
         manualReservation.bookingDeadlineAt,
-        (await db.query("SELECT booking_deadline_at AS deadline FROM offers WHERE id=$1", [offerId])).rows[0].deadline,
+        (
+          await db.query(
+            "SELECT booking_deadline_at AS deadline FROM offers WHERE id=$1",
+            [offerId],
+          )
+        ).rows[0].deadline,
       );
       assert.equal(
         (await kitchenStudentCandidates("test-kitchen", offerId, "pre@")).some(
@@ -485,9 +702,21 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         deliveredQuantity: 2,
         paymentMethod: "QR",
       });
-      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id=$1", [offerId])).rows[0].reserved_count, 3);
+      assert.equal(
+        (
+          await db.query("SELECT reserved_count FROM offers WHERE id=$1", [
+            offerId,
+          ])
+        ).rows[0].reserved_count,
+        3,
+      );
       assert.deepEqual(
-        (await db.query("SELECT quantity,delivered_quantity AS deliveredQuantity FROM order_items WHERE id=$1", [manual.orderItemId])).rows[0],
+        (
+          await db.query(
+            "SELECT quantity,delivered_quantity AS deliveredQuantity FROM order_items WHERE id=$1",
+            [manual.orderItemId],
+          )
+        ).rows[0],
         { quantity: 1, deliveredQuantity: 2 },
       );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
@@ -587,9 +816,24 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       assert.equal(extraordinaryOrder.fulfillmentStatus, "delivered");
       assert.ok(
         new Date(extraordinaryOrder.createdAt).getTime() >
-          new Date((await db.query("SELECT booking_deadline_at AS deadline FROM order_items WHERE id=$1", [extraordinary.orderItemId])).rows[0].deadline).getTime(),
+          new Date(
+            (
+              await db.query(
+                "SELECT booking_deadline_at AS deadline FROM order_items WHERE id=$1",
+                [extraordinary.orderItemId],
+              )
+            ).rows[0].deadline,
+          ).getTime(),
       );
-      assert.equal((await db.query("SELECT delivered_quantity FROM order_items WHERE id=$1", [extraordinary.orderItemId])).rows[0].delivered_quantity, 1);
+      assert.equal(
+        (
+          await db.query(
+            "SELECT delivered_quantity FROM order_items WHERE id=$1",
+            [extraordinary.orderItemId],
+          )
+        ).rows[0].delivered_quantity,
+        1,
+      );
       assert.ok(
         new Date(extraordinaryOrder.createdAt).getTime() >
           new Date("2020-01-01T13:10:00-05:00").getTime(),
@@ -621,12 +865,33 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       await db.query(
         "INSERT INTO order_items(order_id,offer_id,dish_name,quantity,unit_price_cents,total_cents) VALUES('cancel-order','cancel-offer','Plato',1,1100,1100)",
       );
-      await assert.rejects(cancelOrder(consumers[0].id, "cancel-order"), { status: 404 });
+      await assert.rejects(cancelOrder(consumers[0].id, "cancel-order"), {
+        status: 404,
+      });
       await cancelOrder(consumers[1].id, "cancel-order");
-      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id='cancel-offer'")).rows[0].reserved_count, 0);
-      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "cancel-order").status, "cancelado");
-      assert.equal((await kitchenStudentCandidates("test-kitchen", "cancel-offer")).some((student) => student.id === consumers[1].id), true);
-      await assert.rejects(cancelOrder(consumers[1].id, "cancel-order"), { status: 409 });
+      assert.equal(
+        (
+          await db.query(
+            "SELECT reserved_count FROM offers WHERE id='cancel-offer'",
+          )
+        ).rows[0].reserved_count,
+        0,
+      );
+      assert.equal(
+        (await getOrders(consumers[1].id)).find(
+          (order) => order.id === "cancel-order",
+        ).status,
+        "cancelado",
+      );
+      assert.equal(
+        (await kitchenStudentCandidates("test-kitchen", "cancel-offer")).some(
+          (student) => student.id === consumers[1].id,
+        ),
+        true,
+      );
+      await assert.rejects(cancelOrder(consumers[1].id, "cancel-order"), {
+        status: 409,
+      });
       await db.query(
         "INSERT INTO offers(id,kitchen_id,dish_id,offer_date,delivery_time,pickup_until,booking_deadline_at,capacity,reserved_count) VALUES('expired-offer','test-kitchen',$1,'2020-01-02','13:00','13:10','2020-01-02T12:00:00-05:00',1,1)",
         [dishId],
@@ -647,7 +912,11 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         "pending",
       );
       assert.equal(
-        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        (
+          await db.query(
+            "SELECT reserved_count FROM offers WHERE id='expired-offer'",
+          )
+        ).rows[0].reserved_count,
         1,
       );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
@@ -661,7 +930,11 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         "no_show",
       );
       assert.equal(
-        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        (
+          await db.query(
+            "SELECT reserved_count FROM offers WHERE id='expired-offer'",
+          )
+        ).rows[0].reserved_count,
         0,
       );
       await updateKitchenReservation("test-kitchen", "kitchen-actor", {
@@ -670,6 +943,24 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       });
       const kitchenToken = "a".repeat(64);
       await insertSession(kitchenToken, "kitchen-actor");
+      const updatedKitchenCandidates = await fetch(
+        `${base}/api/kitchen/offers/${offerId}/students?q=fresh%40`,
+        { headers: { Cookie: `menuu_session=${kitchenToken}` } },
+      );
+      assert.equal(
+        (await updatedKitchenCandidates.json()).students.some(
+          (student) => student.id === freshUser.id,
+        ),
+        true,
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/api/admin/data`, {
+            headers: { Cookie: `menuu_session=${kitchenToken}` },
+          })
+        ).status,
+        403,
+      );
       const kitchenAfterCorrection = await fetch(`${base}/api/kitchen/data`, {
         headers: { Cookie: `menuu_session=${kitchenToken}` },
       });
@@ -683,7 +974,11 @@ if (!process.env.MENUU_TEST_DB_PATH) {
         "pending",
       );
       assert.equal(
-        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        (
+          await db.query(
+            "SELECT reserved_count FROM offers WHERE id='expired-offer'",
+          )
+        ).rows[0].reserved_count,
         1,
       );
       assert.deepEqual(

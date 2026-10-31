@@ -58,7 +58,10 @@ import {
   type SelectedChoices,
   type User,
 } from "./data/catalog";
-import KitchenDashboard, { type KitchenSection } from "./KitchenDashboard";
+import KitchenDashboard, {
+  AdminDashboard,
+  type KitchenSection,
+} from "./KitchenDashboard";
 import { CustomizationDialog } from "./components/CustomizationDialog";
 import { InstallPrompt } from "./components/InstallPrompt";
 
@@ -73,7 +76,9 @@ type Page =
   | "cocinaMenu"
   | "cocinaPlatos"
   | "cocinaEstadisticas"
-  | "cocinaCuenta";
+  | "cocinaCuenta"
+  | "admin"
+  | "adminPedidos";
 type PickupOption = { key: string; start: string; end: string };
 const validStudentCode = (code: string) =>
   /^(?:[0-9]{9}|[0-9]{4}PRE[0-9]{7,8}|[0-9]{5}PRE[A-Z]{2}[0-9]{5})$/.test(code);
@@ -91,6 +96,8 @@ const routes: Record<Page, string> = {
   cocinaPlatos: "#cocina/platos",
   cocinaEstadisticas: "#cocina/estadisticas",
   cocinaCuenta: "#cocina/cuenta",
+  admin: "#admin",
+  adminPedidos: "#admin/pedidos",
 };
 const kitchenPages: Page[] = [
   "cocinaInicio",
@@ -110,7 +117,11 @@ function pageFromHash(hash: string): Page {
   if (/^#menu\/cocina\/[a-z0-9-]+$/.test(hash)) return "buscar";
   return (
     (Object.keys(routes) as Page[]).find((page) => routes[page] === hash) ??
-    (hash.startsWith("#cocina/") ? "cocina" : "inicio")
+    (hash.startsWith("#cocina/")
+      ? "cocina"
+      : hash.startsWith("#admin/")
+        ? "admin"
+        : "inicio")
   );
 }
 function kitchenFromHash(hash: string): string | null {
@@ -128,7 +139,7 @@ function DataNoticeDialog({
   kind,
   onClose,
 }: {
-  kind: "consumer" | "kitchen";
+  kind: "consumer" | "kitchen" | "admin";
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -159,7 +170,16 @@ function DataNoticeDialog({
         Menúu es un producto piloto con fines educativos para el curso
         Emprendimiento 1. Sus funciones pueden cambiar durante esta etapa.
       </p>
-      {kind === "kitchen" ? (
+      {kind === "admin" ? (
+        <>
+          <h3>Si administras las entregas</h3>
+          <p>
+            Tu cuenta permite ver los pedidos de todas las cocinas y registrar
+            cupos, altas manuales, entregas, ausencias y pagos. Guardamos quién
+            realizó cada cambio y cuándo.
+          </p>
+        </>
+      ) : kind === "kitchen" ? (
         <>
           <h3>Si gestionas una cocina</h3>
           <p>
@@ -488,9 +508,7 @@ function OfferingCard({
             {offer.bookable && <ArrowRight size={17} />}
           </Button>
         </div>
-        <span
-          className={`offer-stock${soldOut ? " offer-stock-soldout" : ""}`}
-        >
+        <span className={`offer-stock${soldOut ? " offer-stock-soldout" : ""}`}>
           {soldOut
             ? "¡Sold out!"
             : offer.bookable
@@ -995,9 +1013,12 @@ function AuthPanel({
 
 function KitchenAccess({
   onAuthenticated,
+  role = "kitchen",
 }: {
   onAuthenticated: () => Promise<void>;
+  role?: "kitchen" | "admin";
 }) {
+  const admin = role === "admin";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1009,7 +1030,9 @@ function KitchenAccess({
     setError(
       field.type === "email"
         ? field.validity.valueMissing
-          ? "Ingresa el correo de tu cocina."
+          ? admin
+            ? "Ingresa el correo de admin."
+            : "Ingresa el correo de tu cocina."
           : "Revisa el formato del correo."
         : "Ingresa tu contraseña.",
     );
@@ -1019,7 +1042,7 @@ function KitchenAccess({
     setBusy(true);
     setError("");
     try {
-      await api("/api/auth/login", { email, password, role: "kitchen" });
+      await api("/api/auth/login", { email, password, role });
       await onAuthenticated();
     } catch (cause) {
       setError(
@@ -1032,8 +1055,10 @@ function KitchenAccess({
   return (
     <section className="page-section narrow auth-page kitchen-access">
       <div className="page-heading">
-        <span className="eyebrow">ACCESO DE COCINAS</span>
-        <h1>Entra a tu cocina</h1>
+        <span className="eyebrow">
+          {admin ? "ACCESO ADMIN" : "ACCESO DE COCINAS"}
+        </span>
+        <h1>{admin ? "Administra las entregas" : "Entra a tu cocina"}</h1>
       </div>
       <div className="kitchen-access-layout">
         <div className="kitchen-access-card">
@@ -1042,7 +1067,7 @@ function KitchenAccess({
           </div>
           <form onSubmit={submit} onInvalidCapture={invalid}>
             <label>
-              Correo de la cocina
+              {admin ? "Correo de admin" : "Correo de la cocina"}
               <input
                 type="email"
                 autoComplete="email"
@@ -1052,7 +1077,7 @@ function KitchenAccess({
                   setEmail(event.target.value);
                   setError("");
                 }}
-                placeholder="cocina@correo.com"
+                placeholder={admin ? "admin@correo.com" : "cocina@correo.com"}
               />
             </label>
             <label>
@@ -1070,7 +1095,11 @@ function KitchenAccess({
               />
             </label>
             <Button type="submit" disabled={busy}>
-              {busy ? "Un momento…" : "Entrar como cocina"}{" "}
+              {busy
+                ? "Un momento…"
+                : admin
+                  ? "Entrar como admin"
+                  : "Entrar como cocina"}{" "}
               <ArrowRight size={18} aria-hidden="true" />
             </Button>
           </form>
@@ -1089,6 +1118,11 @@ function KitchenAccess({
       <a className="kitchen-back-link" href={routes.cuenta}>
         Soy estudiante <ArrowRight size={16} aria-hidden="true" />
       </a>
+      {!admin && (
+        <a className="kitchen-back-link" href={routes.admin}>
+          Acceso admin <ArrowRight size={16} aria-hidden="true" />
+        </a>
+      )}
       {error && (
         <AuthErrorToast message={error} kitchen onClose={() => setError("")} />
       )}
@@ -1515,9 +1549,9 @@ export default function App() {
   const [pickupFilter, setPickupFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Offering | null>(null);
-  const [dataNotice, setDataNotice] = useState<"consumer" | "kitchen" | null>(
-    null,
-  );
+  const [dataNotice, setDataNotice] = useState<
+    "consumer" | "kitchen" | "admin" | null
+  >(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const bookingKeyRef = useRef<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -1576,6 +1610,11 @@ export default function App() {
     if (state?.user?.role === "kitchen" && !kitchenPages.includes(page)) {
       window.history.replaceState(null, "", routes.cocinaCuenta);
       setPage("cocinaCuenta");
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+    if (state?.user?.role === "admin" && page !== "adminPedidos") {
+      window.history.replaceState(null, "", routes.adminPedidos);
+      setPage("adminPedidos");
       window.scrollTo({ top: 0, behavior: "auto" });
     }
   }, [state?.user?.role, page]);
@@ -1905,11 +1944,28 @@ export default function App() {
     await refresh();
     go("cocina");
   }
+  async function adminLogout() {
+    await api("/api/auth/logout", {});
+    await refresh();
+    go("admin");
+  }
 
   const kitchenSession = state?.user?.role === "kitchen";
+  const adminSession = state?.user?.role === "admin";
+  const adminArea =
+    !kitchenSession &&
+    (page === "admin" || page === "adminPedidos" || adminSession);
   const kitchenArea =
-    page === "cocina" || kitchenPages.includes(page) || kitchenSession;
+    !adminSession &&
+    (page === "cocina" || kitchenPages.includes(page) || kitchenSession);
   const kitchenHome: Page = kitchenSession ? "cocinaInicio" : "cocina";
+  const areaHome: Page = adminArea
+    ? adminSession
+      ? "adminPedidos"
+      : "admin"
+    : kitchenArea
+      ? kitchenHome
+      : "inicio";
   const kitchenSection: KitchenSection =
     page === "cocinaInicio"
       ? "inicio"
@@ -1937,10 +1993,8 @@ export default function App() {
         <div className="container header-inner">
           <a
             className="brand"
-            href={routes[kitchenArea ? kitchenHome : "inicio"]}
-            onClick={(event) =>
-              follow(event, kitchenArea ? kitchenHome : "inicio")
-            }
+            href={routes[areaHome]}
+            onClick={(event) => follow(event, areaHome)}
             aria-label="Menúu, ir al inicio"
           >
             <img src="/images/menuu-logo.png" width="52" height="49" alt="" />
@@ -1948,7 +2002,16 @@ export default function App() {
               Menú<span className="brand-last-letter">u</span>
             </span>
           </a>
-          {kitchenArea ? (
+          {adminArea ? (
+            <nav className="desktop-nav" aria-label="Navegación de admin">
+              <a
+                href={routes[adminSession ? "adminPedidos" : "admin"]}
+                aria-current="page"
+              >
+                {adminSession ? "Pedidos y entregas" : "Acceso admin"}
+              </a>
+            </nav>
+          ) : kitchenArea ? (
             <nav
               className="desktop-nav kitchen-nav"
               aria-label="Navegación de cocina"
@@ -2036,7 +2099,18 @@ export default function App() {
           ) : (
             <KitchenAccess onAuthenticated={refresh} />
           ))}
-        {state && !kitchenSession && page === "inicio" && (
+        {state &&
+          adminArea &&
+          (adminSession ? (
+            <AdminDashboard
+              user={state.user!}
+              onLogout={adminLogout}
+              onChanged={refresh}
+            />
+          ) : (
+            <KitchenAccess role="admin" onAuthenticated={refresh} />
+          ))}
+        {state && !kitchenSession && !adminSession && page === "inicio" && (
           <>
             <div className="location-line">
               <BrandLocationIcon size={22} />
@@ -2162,7 +2236,7 @@ export default function App() {
             )}
           </>
         )}
-        {state && !kitchenSession && page === "buscar" && (
+        {state && !kitchenSession && !adminSession && page === "buscar" && (
           <section className="page-section">
             <div className="page-heading">
               <span className="eyebrow">ELIGE TU ANTOJO</span>
@@ -2203,7 +2277,7 @@ export default function App() {
             )}
           </section>
         )}
-        {state && !kitchenSession && page === "carrito" && (
+        {state && !kitchenSession && !adminSession && page === "carrito" && (
           <section className="page-section narrow">
             <div className="page-heading">
               <span className="eyebrow">TU PEDIDO</span>
@@ -2286,7 +2360,7 @@ export default function App() {
             )}
           </section>
         )}
-        {state && !kitchenSession && page === "pedidos" && (
+        {state && !kitchenSession && !adminSession && page === "pedidos" && (
           <section className="page-section narrow">
             <div className="page-heading">
               <span className="eyebrow">TUS BREAKS</span>
@@ -2328,7 +2402,7 @@ export default function App() {
             )}
           </section>
         )}
-        {state && !kitchenSession && page === "cuenta" && (
+        {state && !kitchenSession && !adminSession && page === "cuenta" && (
           <section className="page-section narrow auth-page">
             {state.user ? (
               <>
@@ -2356,31 +2430,34 @@ export default function App() {
           </section>
         )}
       </main>
-      {!kitchenSession && page === "inicio" && itemCount > 0 && (
-        <aside className="cart-ribbon" aria-label="Productos en el carrito">
-          <span className="cart-ribbon-icon">
-            <BrandCartIcon size={25} inverse />
-          </span>
-          <div className="cart-ribbon-copy">
-            <strong>
-              {itemCount}{" "}
-              {itemCount === 1 ? "plato en tu carrito" : "platos en tu carrito"}
-            </strong>
-            <span>Listos para revisar · {money(total)}</span>
-          </div>
-          <Button variant="secondary" onClick={() => go("carrito")}>
-            Ir al carrito <ArrowRight size={18} />
-          </Button>
-        </aside>
-      )}
+      {!kitchenSession &&
+        !adminSession &&
+        page === "inicio" &&
+        itemCount > 0 && (
+          <aside className="cart-ribbon" aria-label="Productos en el carrito">
+            <span className="cart-ribbon-icon">
+              <BrandCartIcon size={25} inverse />
+            </span>
+            <div className="cart-ribbon-copy">
+              <strong>
+                {itemCount}{" "}
+                {itemCount === 1
+                  ? "plato en tu carrito"
+                  : "platos en tu carrito"}
+              </strong>
+              <span>Listos para revisar · {money(total)}</span>
+            </div>
+            <Button variant="secondary" onClick={() => go("carrito")}>
+              Ir al carrito <ArrowRight size={18} />
+            </Button>
+          </aside>
+        )}
       <footer className="site-footer">
         <div className="container footer-inner">
           <a
             className="footer-brand"
-            href={routes[kitchenArea ? kitchenHome : "inicio"]}
-            onClick={(event) =>
-              follow(event, kitchenArea ? kitchenHome : "inicio")
-            }
+            href={routes[areaHome]}
+            onClick={(event) => follow(event, areaHome)}
             aria-label="Menúu, ir al inicio"
           >
             <img src="/images/menuu-logo.png" width="37" height="35" alt="" />
@@ -2392,15 +2469,21 @@ export default function App() {
           <button
             type="button"
             className="footer-notice-button"
-            onClick={() => setDataNotice(kitchenArea ? "kitchen" : "consumer")}
+            onClick={() =>
+              setDataNotice(
+                adminArea ? "admin" : kitchenArea ? "kitchen" : "consumer",
+              )
+            }
           >
-            {kitchenArea
-              ? "Datos y piloto para cocinas"
-              : "Privacidad y piloto"}
+            {adminArea
+              ? "Datos y piloto para admin"
+              : kitchenArea
+                ? "Datos y piloto para cocinas"
+                : "Privacidad y piloto"}
           </button>
         </div>
       </footer>
-      {!kitchenArea && (
+      {!kitchenArea && !adminArea && (
         <nav className="mobile-nav" aria-label="Navegación principal">
           {navigation.map(({ id, label, icon: Icon }) => (
             <a
@@ -2942,7 +3025,8 @@ function OrderCard({
       )}
       {order.status === "no_se_presento" && (
         <p className="review-note">
-          No se registró el recojo dentro de los 15 minutos posteriores a la hora prevista.
+          No se registró el recojo dentro de los 15 minutos posteriores a la
+          hora prevista.
         </p>
       )}
       {order.status === "entregado" &&

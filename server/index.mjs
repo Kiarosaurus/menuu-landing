@@ -4,6 +4,12 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deliveryMoment } from "./catalog.mjs";
+import {
+  adminData,
+  adminOfferKitchen,
+  adminOrderKitchen,
+  updateAdminCapacity,
+} from "./admin.mjs";
 import { careers } from "./careers.mjs";
 import { closeDb } from "./db.mjs";
 import {
@@ -205,6 +211,49 @@ async function handleApi(req, res, url) {
     return res.end(image.content);
   }
 
+  if (url.pathname.startsWith("/api/admin/")) {
+    const user = await userFromSession(sessionToken(req));
+    if (!user) return error(res, 401, "Inicia sesión como admin.");
+    if (user.role !== "admin")
+      return error(res, 403, "Acceso de admin requerido.");
+    if (req.method === "GET" && url.pathname === "/api/admin/data")
+      return json(res, 200, await adminData());
+    const candidatesMatch =
+      /^\/api\/admin\/offers\/([a-zA-Z0-9-]+)\/students$/.exec(url.pathname);
+    if (req.method === "GET" && candidatesMatch) {
+      const kitchenId = await adminOfferKitchen(candidatesMatch[1]);
+      return json(res, 200, {
+        students: await kitchenStudentCandidates(
+          kitchenId,
+          candidatesMatch[1],
+          url.searchParams.get("q") || "",
+        ),
+      });
+    }
+    if (req.method !== "POST" || !sameOrigin(req))
+      return error(res, 403, "Solicitud no permitida.");
+    const data = await body(req);
+    if (url.pathname === "/api/admin/offers/capacity")
+      return json(res, 200, await updateAdminCapacity(user.id, data));
+    if (url.pathname === "/api/admin/reservations/add") {
+      const kitchenId = await adminOfferKitchen(data?.offerId);
+      return json(
+        res,
+        201,
+        await addKitchenReservation(kitchenId, user.id, data),
+      );
+    }
+    if (url.pathname === "/api/admin/reservations/update") {
+      const kitchenId = await adminOrderKitchen(data?.orderId);
+      return json(
+        res,
+        200,
+        await updateKitchenReservation(kitchenId, user.id, data),
+      );
+    }
+    return error(res, 404, "Ruta no encontrada.");
+  }
+
   if (url.pathname.startsWith("/api/kitchen/")) {
     const user = await userFromSession(sessionToken(req));
 
@@ -399,7 +448,9 @@ async function handleApi(req, res, url) {
     const email =
       typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
     const password = typeof data.password === "string" ? data.password : "";
-    const role = data.role === "kitchen" ? "kitchen" : "consumer";
+    const role = ["consumer", "kitchen", "admin"].includes(data.role)
+      ? data.role
+      : "consumer";
     const user = await findUserByEmail(email);
 
     if (!user || !verifyPassword(password, user.passwordHash))
@@ -411,7 +462,9 @@ async function handleApi(req, res, url) {
         403,
         role === "kitchen"
           ? "Esta cuenta no tiene acceso de cocina."
-          : "Esta cuenta pertenece a una cocina. Usa el acceso de cocinas.",
+          : role === "admin"
+            ? "Esta cuenta no tiene acceso de admin."
+            : "Esta cuenta usa otro acceso de Menúu.",
       );
     const token = randomBytes(32).toString("hex");
 

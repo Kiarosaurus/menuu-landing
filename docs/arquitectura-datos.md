@@ -10,7 +10,8 @@
 
 | Tabla                                                   | Contenido                                                               |
 | ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `users`, `sessions`                                     | Estudiantes, cocinas y sesiones persistentes; contraseñas con `scrypt`. |
+| `users`, `sessions`                                     | Estudiantes, cocinas, admins y sesiones persistentes; contraseñas con `scrypt`. |
+| `admin_offer_events`                                    | Cambios de cupo hechos por admin, con actor y fecha. |
 | `kitchens`, `kitchen_images`                            | Perfil y fotos de cocina.                                               |
 | `dishes`, `option_groups`, `option_choices`             | Catálogo base y personalización.                                        |
 | `offers`, `offer_option_groups`, `offer_option_choices` | Publicación por día, horario, cupo y variantes.                         |
@@ -32,6 +33,12 @@ Una ausencia `no_show` permanece en el historial y restringe nuevas reservas del
 
 ## Entrega, reseñas y trabajo pendiente
 
-Los pedidos empiezan con `fulfillment_status='pending'` y `review_enabled=0`. Una reseña requiere estado `delivered`, permiso explícito, hora de entrega cumplida y una nota para cada plato; se admite una vez por pedido. Solo `no_show` restringe futuras reservas. La interfaz de superusuario para confirmar entrega o ausencia, habilitar reseñas y auditar cambios todavía no está implementada.
+Los pedidos empiezan con `fulfillment_status='pending'` y `review_enabled=0`. Una reseña requiere estado `delivered`, permiso explícito, hora de entrega cumplida y una nota para cada plato; se admite una vez por pedido. Solo `no_show` restringe futuras reservas. El panel admin ya gestiona entregas y ausencias de todas las cocinas; la habilitación de reseñas permanece pendiente.
+
+## Rol admin
+
+La migración `0011_admin_role.sql` permite `users.role='admin'` sin `kitchen_id` y crea `admin_offer_events`. No se pueden registrar admins desde la web. El acceso `#admin` usa la sesión existente; `/api/admin/*` comprueba el rol en cada petición. El dashboard consulta ofertas y pedidos de la semana actual y siguiente de todas las cocinas, y filtra por semana y cocina. Al ajustar cupos se valida el mínimo reservado dentro de una transacción y se registra actor, cupo anterior, cupo nuevo y fecha. Las altas manuales y cambios de entrega reutilizan las transacciones de cocina, que verifican el `kitchen_id` real del menú o pedido y auditan el actor en `kitchen_reservation_events`. Las cocinas conservan acceso únicamente a su propia cocina.
+
+Los dos paneles consultan de nuevo los estudiantes elegibles al pulsar «Actualizar estudiantes». Así se incluye una cuenta creada después de abrir la pantalla, sin recargar toda la página.
 
 Antes de atender reservas reales, configura copias de seguridad, supervisión y el token de Turso en el entorno de producción. La verificación automatizada `npm run test:libsql` usa una base temporal: comprueba migraciones, catálogo, registro, sesión, cupos concurrentes, idempotencia, estadísticas, imágenes y reseñas.

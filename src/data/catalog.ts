@@ -58,7 +58,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  role: "consumer" | "kitchen";
+  role: "consumer" | "kitchen" | "admin";
   kitchenId?: string;
   studentCode: string | null;
   career: string | null;

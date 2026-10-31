@@ -422,16 +422,13 @@
 .km-outline-button:hover {
   border-color: var(--color-brand);
 }
-.km-outline-button:focus-within {
+.km-outline-button:focus-visible {
   outline: 3px solid var(--color-orange);
   outline-offset: 3px;
 }
-.km-outline-button input[type="file"] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
+.km-outline-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 .km-upload {
   justify-self: start;
@@ -1032,7 +1029,10 @@
   --reservation-bg: var(--color-status-pending-bg);
   --reservation-ink: var(--color-orange-ink);
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.2fr) minmax(300px, 1.5fr);
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.2fr) minmax(
+      300px,
+      1.5fr
+    );
   gap: 18px;
   align-items: center;
   padding: 16px;
@@ -1107,6 +1107,18 @@
   gap: 6px;
   font-weight: 500;
 }
+.km-student-search {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.km-student-search label {
+  flex: 1 1 260px;
+}
+.km-student-search .button {
+  min-height: 48px;
+}
 .km-reservation-add input {
   width: 100%;
   max-width: 420px;
@@ -1180,7 +1192,9 @@
     grid-column: 1 / -1;
     max-width: 300px;
   }
-  .km-reservation-delivery-fields { grid-column: 1 / -1; }
+  .km-reservation-delivery-fields {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 600px) {
   .km-reservations {
@@ -1714,18 +1728,54 @@
 .km-payment-dialog::-webkit-scrollbar-thumb:hover {
   background: var(--color-scroll-thumb-hover);
 }
-.km-payment-dialog::backdrop { background: rgb(10 34 23 / 58%); }
-.km-payment-dialog h2 { margin: 5px 0 9px; font: 500 28px/1.2 var(--font-display); }
-.km-payment-dialog p { margin-bottom: 19px; line-height: 1.55; }
-.km-delivered-quantity { display: grid; gap: 6px; margin-bottom: 18px; }
-.km-delivered-quantity small { color: var(--color-muted); font-size: 13px; font-weight: 400; }
-.km-reservation-delivery-fields { display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1fr); gap: 10px; }
-.km-reservation-delivery-fields .km-select-trigger { min-height: 44px; padding: 8px 10px; font-size: 14px; }
-@media (max-width: 700px) {
-  .km-reservation-delivery-fields { grid-template-columns: minmax(0, 1fr); }
+.km-payment-dialog::backdrop {
+  background: rgb(10 34 23 / 58%);
 }
-.km-payment-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-.km-reservation-payment { align-self: center; color: var(--color-muted); font-size: 14px; }
+.km-payment-dialog h2 {
+  margin: 5px 0 9px;
+  font: 500 28px/1.2 var(--font-display);
+}
+.km-payment-dialog p {
+  margin-bottom: 19px;
+  line-height: 1.55;
+}
+.km-delivered-quantity {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.km-delivered-quantity small {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.km-reservation-delivery-fields {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(150px, 1fr);
+  gap: 10px;
+}
+.km-reservation-delivery-fields .km-select-trigger {
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+@media (max-width: 700px) {
+  .km-reservation-delivery-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.km-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+.km-reservation-payment {
+  align-self: center;
+  color: var(--color-muted);
+  font-size: 14px;
+}
 .km-preview-dialog::backdrop {
   background: rgb(10 34 23 / 58%);
 }

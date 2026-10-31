@@ -12,6 +12,7 @@
     "build": "tsc -b && vite build",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "admin:create": "node scripts/create-admin.mjs",
     "test:libsql": "node --env-file-if-exists=.env scripts/test-libsql.mjs",
     "lint": "eslint . --ignore-pattern dist",
     "lint:fix": "eslint . --ignore-pattern dist --fix",

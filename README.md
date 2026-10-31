@@ -41,4 +41,10 @@ La app guarda reservas en transacciones de escritura libSQL. Cada reserva compru
 
 El esquema nuevo está en `server/migrations/0001_initial.sql`. Las migraciones PostgreSQL anteriores se conservan solo como referencia en `docs/postgres-migrations/`; ya no se ejecutan. Consulta [docs/arquitectura-datos.md](docs/arquitectura-datos.md) para las tablas y garantías de datos.
 
-Los consumidores ven esta semana y la siguiente. Una cocina puede publicar platos solo en ciertos días de lunes a sábado. Cada oferta tiene fecha, ventana de recojo, cierre de reserva y capacidad propios. Los pedidos marcados como entregados permiten calcular ventas; las reseñas requieren además una habilitación interna y la hora de entrega cumplida. La función de superusuario que gestionará entregas y ausencias sigue pendiente.
+Los consumidores ven esta semana y la siguiente. Una cocina puede publicar platos solo en ciertos días de lunes a sábado. Cada oferta tiene fecha, ventana de recojo, cierre de reserva y capacidad propios. Los pedidos marcados como entregados permiten calcular ventas; las reseñas requieren además una habilitación interna y la hora de entrega cumplida. La habilitación de reseñas por un usuario con permisos especiales sigue pendiente.
+
+## Administración
+
+El tercer rol, `admin`, entra por `#admin` y ve los pedidos de la semana actual y la siguiente de todas las cocinas. Puede ajustar cupos y gestionar altas manuales, entregas, ausencias y pagos. Las cocinas siguen limitadas a sus propios menús. Ambos paneles permiten actualizar la lista de estudiantes cuando alguien acaba de registrarse. No existe registro público de admins.
+
+Para crear una cuenta admin, define `MENUU_ADMIN_DATABASE_URL` con la URL libSQL elegida, `MENUU_ADMIN_EMAIL` y `MENUU_ADMIN_PASSWORD` (mínimo 12 caracteres); para Turso remoto define además `MENUU_ADMIN_AUTH_TOKEN`. Ejecuta `npm run admin:create`. El comando exige la URL explícita y no imprime la contraseña. Comprueba que la URL corresponde al entorno deseado antes de ejecutarlo.

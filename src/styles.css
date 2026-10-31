@@ -3589,7 +3589,7 @@ p {
     height: 52px;
   }
   .featured-slide .welcome-photo .featured-dish-label {
-    bottom: 48px;
+    bottom: 16px;
   }
   .featured-arrow {
     --arrow-y: -50%;
