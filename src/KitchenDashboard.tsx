@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -263,6 +264,7 @@ function KitchenSelect({
   placeholder,
   options,
   onChange,
+  withinDialog = false,
 }: {
   id: string;
   label: string;
@@ -270,11 +272,67 @@ function KitchenSelect({
   placeholder?: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  withinDialog?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [popupPosition, setPopupPosition] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const wasOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!open || !withinDialog) return;
+    const updatePosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const bounds = trigger.getBoundingClientRect();
+      const gap = 6;
+      const edge = 12;
+      const desiredHeight = Math.min(250, options.length * 44 + 14);
+      const below = window.innerHeight - bounds.bottom - gap - edge;
+      const above = bounds.top - gap - edge;
+      const openUp = below < desiredHeight && above > below;
+      const maxHeight = Math.max(44, Math.min(desiredHeight, openUp ? above : below));
+      const nextPosition: {
+        top?: number;
+        bottom?: number;
+        left: number;
+        width: number;
+        maxHeight: number;
+      } = {
+        ...(openUp
+          ? { bottom: window.innerHeight - bounds.top + gap }
+          : { top: bounds.bottom + gap }),
+        left: Math.max(
+          edge,
+          Math.min(bounds.left, window.innerWidth - bounds.width - edge),
+        ),
+        width: Math.min(bounds.width, window.innerWidth - edge * 2),
+        maxHeight,
+      };
+      setPopupPosition((current) =>
+        current?.top === nextPosition.top &&
+        current?.bottom === nextPosition.bottom &&
+        current?.left === nextPosition.left &&
+        current?.width === nextPosition.width &&
+        current?.maxHeight === nextPosition.maxHeight
+          ? current
+          : nextPosition,
+      );
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    document.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      document.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, withinDialog, options.length]);
   useEffect(() => {
     if (open && !wasOpen.current)
       optionRefs.current[
@@ -323,10 +381,18 @@ function KitchenSelect({
       </button>
       {open && (
         <div
-          className="km-select-options"
+          className={`km-select-options${withinDialog ? " km-select-options-dialog" : ""}`}
           id={`${id}-options`}
           role="listbox"
           aria-labelledby={`${id}-label`}
+          style={
+            withinDialog
+              ? {
+                  ...popupPosition,
+                  visibility: popupPosition ? "visible" : "hidden",
+                }
+              : undefined
+          }
         >
           {options.map((option, index) => (
             <button
@@ -1016,11 +1082,6 @@ function KitchenReservationPanel({
                             Marcar como entregado
                           </Button>
                         )}
-                      {item.status === "reservado" && item.fulfillmentStatus === "delivered" && (
-                        <Button variant="secondary" disabled={!!busyOrder} onClick={() => openDeliveryPrompt(item)}>
-                          {item.paymentRecorded ? "Editar entrega" : "Completar entrega"}
-                        </Button>
-                      )}
                       {item.status === "reservado" && item.fulfillmentStatus === "pending" &&
                         pickupEnded &&
                         new Date(item.createdAt).getTime() <= pickupEndTime && (
@@ -1169,6 +1230,7 @@ function KitchenReservationPanel({
         <div className="km-delivered-quantity">
           <KitchenSelect
             id="km-delivered-quantity"
+            withinDialog
             label="Porciones entregadas"
             value={promptQuantity}
             options={Array.from(
@@ -1181,6 +1243,7 @@ function KitchenReservationPanel({
         </div>
         <KitchenSelect
           id="km-extra-payment"
+          withinDialog
           label="Método de pago"
           value={promptMethod}
           placeholder="Selecciona un método"

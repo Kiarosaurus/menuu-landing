@@ -1390,6 +1390,29 @@
   scrollbar-color: var(--color-scroll-thumb) var(--color-scroll-track);
   scrollbar-width: thin;
 }
+.km-select-options-dialog {
+  position: fixed;
+  z-index: 30;
+  right: auto;
+  top: auto;
+  max-height: min(250px, calc(100dvh - 24px));
+}
+.km-select-options::-webkit-scrollbar {
+  width: 9px;
+}
+.km-select-options::-webkit-scrollbar-track,
+.km-select-options::-webkit-scrollbar-corner {
+  background: var(--color-scroll-track);
+}
+.km-select-options::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 2px solid var(--color-scroll-track);
+  border-radius: 999px;
+  background: var(--color-scroll-thumb);
+}
+.km-select-options::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scroll-thumb-hover);
+}
 .km-select-options button {
   display: flex;
   align-items: center;
@@ -1664,12 +1687,32 @@
 }
 .km-payment-dialog {
   width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   padding: 28px;
   border: 1px solid var(--color-border);
   border-radius: 22px;
   background: var(--color-background);
   box-shadow: 0 24px 70px rgb(7 83 56 / 20%);
   color: var(--color-text);
+  overflow-y: auto;
+  scrollbar-color: var(--color-scroll-thumb) var(--color-scroll-track);
+  scrollbar-width: thin;
+}
+.km-payment-dialog::-webkit-scrollbar {
+  width: 9px;
+}
+.km-payment-dialog::-webkit-scrollbar-track,
+.km-payment-dialog::-webkit-scrollbar-corner {
+  background: var(--color-scroll-track);
+}
+.km-payment-dialog::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 2px solid var(--color-scroll-track);
+  border-radius: 999px;
+  background: var(--color-scroll-thumb);
+}
+.km-payment-dialog::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scroll-thumb-hover);
 }
 .km-payment-dialog::backdrop { background: rgb(10 34 23 / 58%); }
 .km-payment-dialog h2 { margin: 5px 0 9px; font: 500 28px/1.2 var(--font-display); }

@@ -60,6 +60,7 @@ import {
 } from "./data/catalog";
 import KitchenDashboard, { type KitchenSection } from "./KitchenDashboard";
 import { CustomizationDialog } from "./components/CustomizationDialog";
+import { InstallPrompt } from "./components/InstallPrompt";
 
 type Page =
   | "inicio"
@@ -2436,6 +2437,7 @@ export default function App() {
           ))}
         </nav>
       )}
+      <InstallPrompt suppressed={Boolean(selected || dataNotice || notice)} />
       {selected && (
         <CustomizationDialog
           key={selected.id}
