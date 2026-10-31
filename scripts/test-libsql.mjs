@@ -41,9 +41,8 @@ if (!process.env.MENUU_TEST_DB_PATH) {
   const { closeDb, getDb } = await import("../server/db.mjs");
   const { weekStart } = await import("../server/catalog.mjs");
   const { hashPassword } = await import("../server/store.mjs");
-  const { cancelOrder, createBooking, getCatalog, getOrders, insertUser, submitReview } =
+  const { cancelOrder, createBooking, getCatalog, getOrders, insertSession, insertUser, submitReview } =
     await import("../server/repository.mjs");
-  const { expireOverdueReservations } = await import("../server/reservation-lifecycle.mjs");
   const { kitchenData, kitchenImage, saveDish, saveKitchenImage, saveOffer } =
     await import("../server/kitchen.mjs");
   const {
@@ -639,12 +638,62 @@ if (!process.env.MENUU_TEST_DB_PATH) {
       await db.query(
         "INSERT INTO order_items(order_id,offer_id,dish_name,quantity,unit_price_cents,total_cents) VALUES('expired-order','expired-offer','Plato',1,1100,1100)",
       );
-      await expireOverdueReservations(new Date('2020-01-02T18:14:00Z'));
-      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "expired-order").fulfillmentStatus, "pending");
-      assert.equal(await expireOverdueReservations(new Date('2020-01-02T18:15:00Z')), 1);
-      assert.equal(await expireOverdueReservations(new Date('2020-01-02T18:16:00Z')), 0);
-      assert.equal((await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count, 0);
-      assert.equal((await getOrders(consumers[1].id)).find((order) => order.id === "expired-order").fulfillmentStatus, "no_show");
+      const afterPickup = await fetch(`${base}/api/bootstrap`);
+      assert.equal(afterPickup.status, 200);
+      assert.equal(
+        (await getOrders(consumers[1].id)).find(
+          (order) => order.id === "expired-order",
+        ).fulfillmentStatus,
+        "pending",
+      );
+      assert.equal(
+        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        1,
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: "expired-order",
+        action: "cancel",
+      });
+      assert.equal(
+        (await getOrders(consumers[1].id)).find(
+          (order) => order.id === "expired-order",
+        ).fulfillmentStatus,
+        "no_show",
+      );
+      assert.equal(
+        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        0,
+      );
+      await updateKitchenReservation("test-kitchen", "kitchen-actor", {
+        orderId: "expired-order",
+        action: "reset",
+      });
+      const kitchenToken = "a".repeat(64);
+      await insertSession(kitchenToken, "kitchen-actor");
+      const kitchenAfterCorrection = await fetch(`${base}/api/kitchen/data`, {
+        headers: { Cookie: `menuu_session=${kitchenToken}` },
+      });
+      assert.equal(kitchenAfterCorrection.status, 200);
+      const afterCorrection = await fetch(`${base}/api/bootstrap`);
+      assert.equal(afterCorrection.status, 200);
+      assert.equal(
+        (await getOrders(consumers[1].id)).find(
+          (order) => order.id === "expired-order",
+        ).fulfillmentStatus,
+        "pending",
+      );
+      assert.equal(
+        (await db.query("SELECT reserved_count FROM offers WHERE id='expired-offer'")).rows[0].reserved_count,
+        1,
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "SELECT action FROM kitchen_reservation_events WHERE order_id='expired-order' ORDER BY rowid",
+          )
+        ).rows.map((event) => event.action),
+        ["cancel", "reset"],
+      );
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }

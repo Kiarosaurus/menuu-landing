@@ -733,7 +733,7 @@ function KitchenMenuRow({
           onClick={onReservations}
           aria-expanded={reservationsOpen}
         >
-          Reservas
+          Entregas
         </Button>
       </div>
     </article>
@@ -901,10 +901,10 @@ function KitchenReservationPanel({
     );
   });
   return (
-    <section className="km-reservations" aria-label="Gestión de reservas">
+    <section className="km-reservations" aria-label="Gestión de entregas">
       <div className="km-reservations-head">
         <div>
-          <span className="eyebrow">RESERVAS DEL MENÚ</span>
+          <span className="eyebrow">ENTREGAS DEL MENÚ</span>
           <h2>
             {dateLabel(offer.date, {
               weekday: "long",
@@ -923,7 +923,7 @@ function KitchenReservationPanel({
           className="km-icon-button"
           type="button"
           onClick={onClose}
-          aria-label="Cerrar reservas"
+          aria-label="Cerrar entregas"
         >
           <X size={20} />
         </button>
@@ -937,7 +937,7 @@ function KitchenReservationPanel({
         <div className="km-reservation-filters" aria-label="Filtrar reservas">
           <KitchenSelect
             id={`reservation-status-${offer.id}`}
-            label="Estado de reserva"
+            label="Estado de entrega"
             value={statusFilter}
             options={[
               { value: "all", label: "Todos los estados" },
